@@ -26,9 +26,9 @@ export function isFeatureEnabled(flagName: string): boolean {
     return publicEnvValue === 'true' || publicEnvValue === '1';
   }
   
-  // Default: enabled in development, disabled in production
-  // Override by setting the env variable
-  return process.env.NODE_ENV === 'development';
+  // Default: enabled in all environments (production-ready)
+  // Disable by setting the env variable to 'false' or '0'
+  return true;
 }
 
 /**

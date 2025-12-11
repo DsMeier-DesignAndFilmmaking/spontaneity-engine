@@ -13,12 +13,14 @@ const supabaseAnonKeyEnv = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
 // Check if we have real environment variables (not placeholders)
 // Valid Supabase URLs follow the pattern: https://[project-ref].supabase.co
-const hasValidConfig = supabaseUrlEnv && 
-                       supabaseUrlEnv.trim() !== '' && 
-                       supabaseUrlEnv.startsWith('https://') &&
-                       supabaseUrlEnv.includes('.supabase.co') &&
-                       supabaseAnonKeyEnv && 
-                       supabaseAnonKeyEnv.trim() !== '';
+const hasValidConfig: boolean = !!(
+  supabaseUrlEnv && 
+  supabaseUrlEnv.trim() !== '' && 
+  supabaseUrlEnv.startsWith('https://') &&
+  supabaseUrlEnv.includes('.supabase.co') &&
+  supabaseAnonKeyEnv && 
+  supabaseAnonKeyEnv.trim() !== ''
+);
 
 // Use actual values if available, otherwise use valid placeholder format
 const supabaseUrl = hasValidConfig 

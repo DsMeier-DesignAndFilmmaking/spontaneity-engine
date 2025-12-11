@@ -15,7 +15,7 @@
  *    - Render DeveloperSandbox (DemoWidget) component
  */
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import { useAuth } from '@/stores/auth';
 import LoadingSpinner from '@/components/layout/LoadingSpinner';
@@ -38,6 +38,15 @@ import DemoWidget from '@/components/demo/DemoWidget';
 export default function DemoPage() {
   const router = useRouter();
   const { authStatus, session } = useAuth();
+  
+  /**
+   * Session stabilization delay state.
+   * 
+   * This state ensures the browser has fully processed the session cookie
+   * before rendering the protected content. This is a final safety measure
+   * to prevent race conditions and snap-back issues.
+   */
+  const [sessionReady, setSessionReady] = useState(false);
 
   /**
    * Enforce Redirect (Only When Confirmed)
@@ -58,6 +67,38 @@ export default function DemoPage() {
   }, [authStatus, router]);
 
   /**
+   * Aggressive Session Stabilization Delay (Last Resort)
+   * 
+   * After the session is confirmed LOGGED_IN, wait 100 milliseconds before
+   * allowing the component to fully render. This ensures the browser has
+   * fully loaded and processed the session state, preventing race conditions
+   * and snap-back issues.
+   * 
+   * This is a final safety measure that runs AFTER Supabase has confirmed
+   * the session status, but BEFORE rendering the protected content.
+   */
+  useEffect(() => {
+    // Only apply delay if user is confirmed LOGGED_IN with a valid session
+    if (authStatus === 'LOGGED_IN' && session) {
+      // Reset sessionReady to false when status changes to LOGGED_IN
+      setSessionReady(false);
+      
+      // Aggressive delay: Wait 100ms to ensure browser has fully processed session
+      const delayTimer = setTimeout(() => {
+        setSessionReady(true);
+      }, 100);
+
+      // Cleanup timer on unmount or if status changes
+      return () => {
+        clearTimeout(delayTimer);
+      };
+    } else {
+      // Reset sessionReady if not logged in
+      setSessionReady(false);
+    }
+  }, [authStatus, session]);
+
+  /**
    * Block Rendering During Load
    * 
    * If authStatus is 'LOADING', immediately return LoadingSpinner.
@@ -70,18 +111,32 @@ export default function DemoPage() {
   }
 
   /**
-   * Render Workbench (Only When Confirmed)
+   * Render Workbench (Only When Confirmed + Stabilized)
    * 
-   * If authStatus is 'LOGGED_IN', proceed to render the DeveloperSandbox
-   * (DemoWidget) component. This only happens after Supabase has confirmed
-   * the user is authenticated, preventing premature rendering.
+   * Render the DeveloperSandbox (DemoWidget) component only when:
+   * 1. authStatus is 'LOGGED_IN' (confirmed by Supabase)
+   * 2. session exists (valid session object)
+   * 3. sessionReady is true (100ms delay has completed after session confirmation)
+   * 
+   * The sessionReady check ensures the browser has fully processed the session
+   * cookie before rendering, preventing race conditions and snap-back issues.
    */
-  if (authStatus === 'LOGGED_IN' && session) {
+  if (authStatus === 'LOGGED_IN' && session && sessionReady) {
     return (
       <div style={demoStyles.container}>
         <DemoWidget />
       </div>
     );
+  }
+
+  /**
+   * Show loading while waiting for session stabilization
+   * 
+   * If authStatus is LOGGED_IN but sessionReady is false, we're in the
+   * 100ms stabilization delay window. Show loading spinner during this time.
+   */
+  if (authStatus === 'LOGGED_IN' && session && !sessionReady) {
+    return <LoadingSpinner />;
   }
 
   /**

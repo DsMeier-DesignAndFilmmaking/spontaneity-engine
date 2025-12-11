@@ -6,16 +6,43 @@
 
 import { supabase, validateSupabaseConfig } from '@/lib/db/supabase';
 import { Session } from '@supabase/supabase-js';
+import { getBaseUrl, getFullUrl } from '@/lib/config/constants';
 
 /**
- * Fixed redirect path for authenticated users.
+ * Fixed redirect path for authenticated users (relative path).
  * 
- * This path uses a relative URL that works in all environments (localhost, Vercel, etc.).
- * For absolute URLs, use NEXT_PUBLIC_BASE_URL environment variable in production.
+ * For relative navigation, use this path directly.
+ * For absolute URLs (e.g., Supabase redirect URLs), use getFullUrl(FIXED_REDIRECT_PATH).
  * 
- * Note: Using relative path ensures it works regardless of deployment URL.
+ * Note: Relative paths work in all environments, but absolute URLs with the clean domain
+ * are required for external redirects (e.g., Supabase auth callbacks).
  */
 export const FIXED_REDIRECT_PATH = '/demo';
+
+/**
+ * Gets the absolute redirect URL for authenticated users.
+ * 
+ * Returns the full URL using the clean production domain:
+ * https://spontaneity-engine.vercel.app/demo
+ * 
+ * Use this for Supabase redirectTo URLs and other external redirects.
+ * 
+ * @returns Full URL with clean domain (no trailing slash)
+ */
+export function getFixedRedirectUrl(): string {
+  return getFullUrl(FIXED_REDIRECT_PATH);
+}
+
+/**
+ * Gets the base URL for the application.
+ * 
+ * Returns the clean production domain or the value from NEXT_PUBLIC_BASE_URL.
+ * 
+ * @returns Base URL (no trailing slash)
+ */
+export function getAppBaseUrl(): string {
+  return getBaseUrl();
+}
 
 /**
  * Gets the current authentication status and session data.

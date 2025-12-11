@@ -185,7 +185,7 @@ export default function FreeDemoWidget() {
 
   return (
     <div style={styles.container}>
-      <div style={styles.card} id="free-demo-widget">
+      <div style={styles.card} id="free-demo-widget" data-demo-card>
         {/* Header with Settings Button */}
         <div style={styles.headerRow}>
           <div style={styles.headerContent}>
@@ -355,10 +355,15 @@ const styles: { [key: string]: React.CSSProperties } = {
   },
   card: {
     backgroundColor: '#ffffff',
-    borderRadius: '12px',
-    padding: '2.5rem',
-    boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+    border: '1px solid #e5e7eb',
+    borderRadius: '0.75rem',
+    padding: '1.5rem',
+    boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
     position: 'relative',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '1rem',
+    height: '100%',
   },
   headerRow: {
     display: 'flex',
@@ -370,15 +375,17 @@ const styles: { [key: string]: React.CSSProperties } = {
     flex: 1,
   },
   title: {
-    fontSize: '2rem',
-    fontWeight: 'bold',
+    fontSize: '1.5rem', // Improved typography hierarchy
+    fontWeight: '700',
     marginBottom: '0.5rem',
-    color: '#1a1a1a',
+    color: '#111827', // Improved contrast
+    lineHeight: '1.3',
   },
   subtitle: {
-    fontSize: '1rem',
-    color: '#666',
-    marginBottom: '2rem',
+    fontSize: '0.9375rem',
+    color: '#6b7280',
+    marginBottom: '0',
+    lineHeight: '1.5',
   },
   settingsButton: {
     backgroundColor: 'transparent',
@@ -410,8 +417,8 @@ const styles: { [key: string]: React.CSSProperties } = {
   controls: {
     display: 'flex',
     flexDirection: 'column',
-    gap: '1.5rem',
-    marginBottom: '2rem',
+    gap: '1.25rem',
+    marginBottom: '0',
   },
   inputGroup: {
     display: 'flex',

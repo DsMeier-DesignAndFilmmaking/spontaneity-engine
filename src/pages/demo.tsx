@@ -39,15 +39,20 @@ export default function DemoPage() {
   // Conditionally render advanced features based on auth status
   return (
     <div style={demoStyles.container}>
-      {/* Side-by-side layout: Free Demo and Advanced Features */}
-      <div style={demoStyles.twoColumnLayout} data-two-column-layout>
+      {/* Grid layout: Free Demo and Advanced Features */}
+      <div style={demoStyles.gridContainer} data-grid-container>
         {/* Left column: Free Demo (always visible) */}
-        <div style={demoStyles.column} data-column>
+        <div style={demoStyles.gridColumn} data-grid-column>
           <FreeDemoWidget />
         </div>
 
+        {/* Mobile-only "OR" divider */}
+        <div style={demoStyles.mobileDivider} data-mobile-divider>
+          <span style={demoStyles.dividerText}>OR</span>
+        </div>
+
         {/* Right column: Advanced Features (conditional based on auth status) */}
-        <div style={demoStyles.column} data-column>
+        <div style={demoStyles.gridColumn} data-grid-column>
           {authStatus === 'LOADING' ? (
             // Show nothing while loading
             null
@@ -68,17 +73,31 @@ const demoStyles: { [key: string]: React.CSSProperties } = {
   container: {
     minHeight: '100vh',
     backgroundColor: '#f5f5f5',
-    padding: '2rem',
+    padding: '2.5rem 1rem',
   },
-  twoColumnLayout: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '2rem',
-    maxWidth: '1400px',
+  gridContainer: {
+    display: 'grid',
+    gridTemplateColumns: '1fr',
+    gap: '1.5rem',
+    maxWidth: '1280px', // max-w-7xl equivalent
     margin: '0 auto',
-  },
-  column: {
     width: '100%',
+  },
+  gridColumn: {
+    width: '100%',
+  },
+  mobileDivider: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    margin: '1rem 0',
+  },
+  dividerText: {
+    fontSize: '0.875rem',
+    fontWeight: '500',
+    color: '#9ca3af', // text-gray-400 equivalent
+    textTransform: 'uppercase',
+    letterSpacing: '0.05em',
   },
 };
 
@@ -89,15 +108,21 @@ if (typeof document !== 'undefined') {
     const style = document.createElement('style');
     style.id = styleId;
     style.textContent = `
-      @media (min-width: 800px) {
-        [data-two-column-layout] {
-          flex-direction: row !important;
-          align-items: flex-start !important;
+      /* Desktop: 2-column grid */
+      @media (min-width: 768px) {
+        [data-grid-container] {
+          grid-template-columns: repeat(2, 1fr) !important;
         }
-        [data-column] {
-          width: 48% !important;
-          flex: 1 1 48% !important;
+        [data-mobile-divider] {
+          display: none !important;
         }
+      }
+      /* Card hover elevation */
+      [data-demo-card] {
+        transition: all 0.2s ease-in-out !important;
+      }
+      [data-demo-card]:hover {
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05) !important;
       }
     `;
     if (document.head) {

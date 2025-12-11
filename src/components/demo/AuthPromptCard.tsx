@@ -40,7 +40,7 @@ export default function AuthPromptCard() {
 
   return (
     <div style={styles.container}>
-      <div style={styles.card}>
+      <div style={styles.card} data-demo-card>
         <div style={styles.iconContainer}>
           <div style={styles.icon}>🔓</div>
         </div>
@@ -99,11 +99,11 @@ export default function AuthPromptCard() {
           Don't worry - signing in is free and takes just a few seconds
         </p>
 
-        {/* Additional feature labels */}
+        {/* Additional feature labels - displayed above sign-in button */}
         <ul style={styles.additionalFeatures}>
-          <li style={styles.additionalFeatureItem}>Calendar sync + live routing</li>
-          <li style={styles.additionalFeatureItem}>Multi-day constraints + packing lists</li>
-          <li style={styles.additionalFeatureItem}>Brandable API & enterprise controls</li>
+          <li style={styles.additionalFeatureItem}>• Calendar sync + live routing</li>
+          <li style={styles.additionalFeatureItem}>• Multi-day constraints + packing lists</li>
+          <li style={styles.additionalFeatureItem}>• Brandable API & enterprise controls</li>
         </ul>
       </div>
     </div>
@@ -117,35 +117,40 @@ const styles: { [key: string]: React.CSSProperties } = {
   },
   card: {
     backgroundColor: '#ffffff',
-    borderRadius: '12px',
-    padding: '3rem 2.5rem',
-    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
-    border: '2px solid #667eea',
+    border: '1px solid #e5e7eb', // border equivalent
+    borderRadius: '0.75rem', // rounded-xl equivalent
+    padding: '1.5rem', // p-6 equivalent
+    boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)', // shadow-sm equivalent
     textAlign: 'center',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '1rem', // gap-4 equivalent
+    height: '100%',
   },
   iconContainer: {
-    marginBottom: '1.5rem',
+    marginBottom: '0.5rem',
   },
   icon: {
-    fontSize: '4rem',
+    fontSize: '3rem',
     display: 'inline-block',
   },
   title: {
-    fontSize: '1.75rem',
-    fontWeight: 'bold',
-    marginBottom: '1rem',
-    color: '#1a1a1a',
+    fontSize: '1.5rem', // Improved typography hierarchy
+    fontWeight: '700',
+    marginBottom: '0.5rem',
+    color: '#111827', // Improved contrast
+    lineHeight: '1.3',
   },
   description: {
-    fontSize: '1rem',
-    color: '#666',
-    marginBottom: '2rem',
-    lineHeight: '1.6',
+    fontSize: '0.9375rem',
+    color: '#6b7280',
+    marginBottom: '0',
+    lineHeight: '1.5',
   },
   featureList: {
     listStyle: 'none',
     padding: 0,
-    margin: '0 0 2rem 0',
+    margin: '0',
     textAlign: 'left',
   },
   featureItem: {
@@ -199,21 +204,21 @@ const styles: { [key: string]: React.CSSProperties } = {
     cursor: 'not-allowed',
   },
   note: {
-    marginTop: '1.5rem',
-    fontSize: '0.875rem',
-    color: '#999',
-    fontStyle: 'italic',
+    marginTop: '0.5rem',
+    fontSize: '0.8125rem',
+    color: '#9ca3af',
+    fontStyle: 'normal',
   },
   additionalFeatures: {
     listStyle: 'none',
     padding: 0,
-    margin: '1.5rem 0 0 0',
+    margin: '0.5rem 0',
     textAlign: 'left',
   },
   additionalFeatureItem: {
-    padding: '0.5rem 0',
+    padding: '0.375rem 0',
     fontSize: '0.875rem',
-    color: '#666',
+    color: '#6b7280',
     lineHeight: '1.6',
   },
 };

@@ -143,7 +143,7 @@ export default function DeveloperSandbox() {
 
   return (
     <div style={styles.container}>
-      <div style={styles.card}>
+      <div style={styles.card} data-demo-card>
         <div style={styles.header}>
           <div>
             <h1 style={styles.title}>Developer Sandbox</h1>
@@ -315,14 +315,14 @@ export default function DeveloperSandbox() {
 
 const styles: { [key: string]: React.CSSProperties } = {
   container: {
-    maxWidth: '900px',
-    margin: '0 auto',
-    padding: '2rem 1rem',
+    width: '100%',
+    padding: '0',
   },
   card: {
     backgroundColor: '#ffffff',
-    borderRadius: '12px',
-    padding: '2.5rem',
+    border: '1px solid #e5e7eb',
+    borderRadius: '0.75rem',
+    padding: '1.5rem',
     boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
   },
   header: {

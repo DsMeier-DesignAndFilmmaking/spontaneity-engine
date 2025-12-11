@@ -6,58 +6,23 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { useAuth } from '@/stores/auth';
 
 /**
  * Homepage component - Marketing landing page.
  * 
  * Provides a clean, welcoming interface with a prominent call-to-action
- * to try the demo. The "Try the Demo" button uses smart navigation based on
- * authentication status to optimize user experience.
+ * to try the demo. The "Try the Demo" button uses Next.js Link component
+ * for reliable navigation that works on the first click.
  */
 export default function HomePage() {
-  const { authStatus } = useAuth();
-
   /**
-   * Hard navigation handler for logged-in users.
+   * Render the demo button using Next.js Link component.
    * 
-   * If the user is already logged in, use hard navigation (window.location.href)
-   * to bypass the auth check on the demo page. This provides a faster, more
-   * direct navigation since we already know the user is authenticated.
-   * 
-   * Hard navigation bypasses client-side routing and ensures the demo page
-   * receives a fresh request with the session cookie already set.
-   */
-  const handleLoggedInNavigation = () => {
-    if (typeof window !== 'undefined') {
-      window.location.href = '/demo';
-    }
-  };
-
-  /**
-   * Render button based on authentication status.
-   * 
-   * Conditional Navigation Logic:
-   * - LOGGED_IN: Use hard navigation (window.location.href) to bypass auth check
-   * - LOGGED_OUT or LOADING: Use Next.js Link component for standard navigation
+   * Using <Link href='/demo' /> guarantees reliable navigation that succeeds
+   * on the first click, even before JavaScript fully loads. This is the most
+   * reliable Next.js navigation method.
    */
   const renderDemoButton = () => {
-    // If user is logged in, use hard navigation to bypass auth check
-    if (authStatus === 'LOGGED_IN') {
-      return (
-        <button
-          type="button"
-          onClick={handleLoggedInNavigation}
-          style={styles.demoButton}
-          aria-label="Try the Demo"
-        >
-          Try the Demo
-        </button>
-      );
-    }
-
-    // For logged out or loading users, use Next.js Link component
-    // This ensures reliable navigation even before JavaScript loads
     return (
       <Link href="/demo" style={styles.linkWrapper}>
         <button

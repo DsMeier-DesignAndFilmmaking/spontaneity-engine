@@ -10,6 +10,7 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { supabase, validateSupabaseConfig } from '@/lib/db/supabase';
 import { Session, User } from '@supabase/supabase-js';
+import { getFullUrl } from '@/lib/config/constants';
 
 /**
  * Three-state authentication status values.
@@ -42,6 +43,8 @@ interface AuthContextType extends AuthState {
   signOut: () => Promise<void>;
   /** Refresh the session */
   refreshSession: () => Promise<void>;
+  /** Sign in with Google OAuth */
+  signInWithGoogle: () => Promise<void>;
 }
 
 /**
@@ -63,6 +66,9 @@ const defaultContextValue: AuthContextType = {
     throw new Error('AuthContext not initialized');
   },
   refreshSession: async () => {
+    throw new Error('AuthContext not initialized');
+  },
+  signInWithGoogle: async () => {
     throw new Error('AuthContext not initialized');
   },
 };
@@ -209,10 +215,37 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   };
 
+  /**
+   * Sign in with Google OAuth
+   */
+  const signInWithGoogle = async () => {
+    try {
+      validateSupabaseConfig();
+      const redirectUrl = getFullUrl('/demo');
+      
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: redirectUrl,
+        },
+      });
+
+      if (error) {
+        console.error('Error signing in with Google:', error);
+        throw error;
+      }
+      // State will be updated automatically by onAuthStateChange listener after redirect
+    } catch (error) {
+      console.error('Unexpected error signing in with Google:', error);
+      throw error;
+    }
+  };
+
   const contextValue: AuthContextType = {
     ...authState,
     signOut,
     refreshSession,
+    signInWithGoogle,
   };
 
   return <AuthContext.Provider value={contextValue}>{children}</AuthContext.Provider>;

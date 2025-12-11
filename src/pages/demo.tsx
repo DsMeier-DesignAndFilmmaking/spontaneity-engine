@@ -14,11 +14,9 @@
 
 import React from 'react';
 import { useAuth } from '@/stores/auth';
-import { isFeatureEnabled, FEATURE_FLAGS } from '@/lib/utils/featureFlags';
 import FreeDemoWidget from '@/components/demo/FreeDemoWidget';
 import DeveloperSandbox from '@/components/demo/DeveloperSandbox';
 import AuthPromptCard from '@/components/demo/AuthPromptCard';
-import AdvancedTeaserCard from '@/components/demo/AdvancedTeaserCard';
 
 /**
  * Demo page component - Low-Friction Demo model with Two-Mode Display.
@@ -36,44 +34,32 @@ import AdvancedTeaserCard from '@/components/demo/AdvancedTeaserCard';
  */
 export default function DemoPage() {
   const { authStatus, session } = useAuth();
-  const enhancementsEnabled = isFeatureEnabled(FEATURE_FLAGS.DEMO_ENHANCEMENTS);
 
   // Always render the free demo widget (no authentication required)
   // Conditionally render advanced features based on auth status
   return (
     <div style={demoStyles.container}>
-      {/* Always visible: Free demo with anonymous API key */}
-      <FreeDemoWidget />
-
-      {/* Advanced Features Teaser Card (feature-flagged, only shown when logged out) */}
-      {enhancementsEnabled && authStatus === 'LOGGED_OUT' && (
-        <AdvancedTeaserCard />
-      )}
-
-      {/* Visual separator */}
-      <div style={demoStyles.separator}>
-        <div style={demoStyles.separatorLine}></div>
-        <div style={demoStyles.separatorText}>
-          {authStatus === 'LOGGED_IN' && session ? '🔓 Advanced Features Unlocked' : '🔒 Unlock Advanced Features'}
+      {/* Side-by-side layout: Free Demo and Advanced Features */}
+      <div style={demoStyles.twoColumnLayout} data-two-column-layout>
+        {/* Left column: Free Demo (always visible) */}
+        <div style={demoStyles.column} data-column>
+          <FreeDemoWidget />
         </div>
-        <div style={demoStyles.separatorLine}></div>
+
+        {/* Right column: Advanced Features (conditional based on auth status) */}
+        <div style={demoStyles.column} data-column>
+          {authStatus === 'LOADING' ? (
+            // Show nothing while loading
+            null
+          ) : authStatus === 'LOGGED_IN' && session ? (
+            // Logged in: Show advanced DeveloperSandbox
+            <DeveloperSandbox />
+          ) : (
+            // Logged out: Show sign-in prompt to unlock advanced features
+            <AuthPromptCard />
+          )}
+        </div>
       </div>
-
-      {/* Conditional: Advanced features based on auth status */}
-      {authStatus === 'LOADING' ? (
-        // Show nothing while loading (FreeDemoWidget is always visible)
-        null
-      ) : authStatus === 'LOGGED_IN' && session ? (
-        // Logged in: Show advanced DeveloperSandbox
-        <div style={demoStyles.advancedSection}>
-          <DeveloperSandbox />
-        </div>
-      ) : (
-        // Logged out: Show sign-in prompt to unlock advanced features
-        <div style={demoStyles.advancedSection}>
-          <AuthPromptCard />
-        </div>
-      )}
     </div>
   );
 }
@@ -84,25 +70,39 @@ const demoStyles: { [key: string]: React.CSSProperties } = {
     backgroundColor: '#f5f5f5',
     padding: '2rem',
   },
-  separator: {
+  twoColumnLayout: {
     display: 'flex',
-    alignItems: 'center',
-    margin: '3rem 0',
-    gap: '1.5rem',
+    flexDirection: 'column',
+    gap: '2rem',
+    maxWidth: '1400px',
+    margin: '0 auto',
   },
-  separatorLine: {
-    flex: 1,
-    height: '1px',
-    backgroundColor: '#e0e0e0',
-  },
-  separatorText: {
-    fontSize: '0.875rem',
-    fontWeight: '600',
-    color: '#666',
-    whiteSpace: 'nowrap',
-  },
-  advancedSection: {
-    marginTop: '1rem',
+  column: {
+    width: '100%',
   },
 };
+
+// Add responsive styles via CSS
+if (typeof document !== 'undefined') {
+  const styleId = 'demo-page-responsive';
+  if (!document.getElementById(styleId)) {
+    const style = document.createElement('style');
+    style.id = styleId;
+    style.textContent = `
+      @media (min-width: 800px) {
+        [data-two-column-layout] {
+          flex-direction: row !important;
+          align-items: flex-start !important;
+        }
+        [data-column] {
+          width: 48% !important;
+          flex: 1 1 48% !important;
+        }
+      }
+    `;
+    if (document.head) {
+      document.head.appendChild(style);
+    }
+  }
+}
 

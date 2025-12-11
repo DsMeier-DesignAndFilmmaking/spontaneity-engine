@@ -98,6 +98,13 @@ export default function AuthPromptCard() {
         <p style={styles.note}>
           Don't worry - signing in is free and takes just a few seconds
         </p>
+
+        {/* Additional feature labels */}
+        <ul style={styles.additionalFeatures}>
+          <li style={styles.additionalFeatureItem}>Calendar sync + live routing</li>
+          <li style={styles.additionalFeatureItem}>Multi-day constraints + packing lists</li>
+          <li style={styles.additionalFeatureItem}>Brandable API & enterprise controls</li>
+        </ul>
       </div>
     </div>
   );
@@ -105,9 +112,8 @@ export default function AuthPromptCard() {
 
 const styles: { [key: string]: React.CSSProperties } = {
   container: {
-    maxWidth: '600px',
-    margin: '0 auto',
-    padding: '2rem 1rem',
+    width: '100%',
+    padding: '0',
   },
   card: {
     backgroundColor: '#ffffff',
@@ -197,6 +203,18 @@ const styles: { [key: string]: React.CSSProperties } = {
     fontSize: '0.875rem',
     color: '#999',
     fontStyle: 'italic',
+  },
+  additionalFeatures: {
+    listStyle: 'none',
+    padding: 0,
+    margin: '1.5rem 0 0 0',
+    textAlign: 'left',
+  },
+  additionalFeatureItem: {
+    padding: '0.5rem 0',
+    fontSize: '0.875rem',
+    color: '#666',
+    lineHeight: '1.6',
   },
 };
 

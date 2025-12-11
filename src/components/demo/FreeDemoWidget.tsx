@@ -349,9 +349,8 @@ export default function FreeDemoWidget() {
 
 const styles: { [key: string]: React.CSSProperties } = {
   container: {
-    maxWidth: '800px',
-    margin: '0 auto',
-    padding: '2rem 1rem',
+    width: '100%',
+    padding: '0',
     position: 'relative',
   },
   card: {
@@ -383,14 +382,16 @@ const styles: { [key: string]: React.CSSProperties } = {
   },
   settingsButton: {
     backgroundColor: 'transparent',
-    border: '1px solid #e0e0e0',
-    borderRadius: '8px',
-    padding: '0.5rem',
+    border: 'none',
+    borderRadius: '50%',
+    width: '40px',
+    height: '40px',
+    padding: '0',
     cursor: 'pointer',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    transition: 'all 0.2s',
+    transition: 'background-color 0.2s ease, color 0.2s ease',
     outline: 'none',
     color: '#666',
     flexShrink: 0,
@@ -398,11 +399,13 @@ const styles: { [key: string]: React.CSSProperties } = {
     marginTop: '0.25rem',
   },
   settingsButtonDisabled: {
-    opacity: 0.6,
+    opacity: 0.5,
     cursor: 'not-allowed',
   },
   settingsIcon: {
     display: 'block',
+    width: '20px',
+    height: '20px',
   },
   controls: {
     display: 'flex',

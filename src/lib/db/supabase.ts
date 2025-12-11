@@ -44,6 +44,15 @@ const supabaseAnonKey = hasValidConfig
  * const { data, error } = await supabase.from('users').select('*');
  * ```
  */
+/**
+ * IMPORTANT: Supabase Auth URL Configuration
+ * 
+ * In Supabase Dashboard → Authentication → URL Configuration, ensure:
+ * - "Redirect after sign-out" is set to: https://yourdomain.com/demo
+ * 
+ * This ensures consistent redirect behavior server-side when users log out.
+ * However, the frontend logout handler keeps users on /demo without redirecting.
+ */
 export const supabase: SupabaseClientType = createClient(
   supabaseUrl,
   supabaseAnonKey,

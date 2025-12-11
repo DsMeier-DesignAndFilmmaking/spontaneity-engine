@@ -36,9 +36,10 @@ export default function DeveloperSandbox() {
   /**
    * Handles the logout process.
    * 
-   * Executes supabase.auth.signOut() to terminate the session and then uses
-   * window.location.replace('/') to guarantee a clean return to the main page
-   * without adding to the browser history.
+   * Executes supabase.auth.signOut() to terminate the session.
+   * User remains on /demo page after logout - no redirect occurs.
+   * The auth state will update automatically via onAuthStateChange listener,
+   * causing the UI to transition from DeveloperSandbox to AuthPromptCard.
    */
   const handleLogout = async () => {
     try {
@@ -49,6 +50,7 @@ export default function DeveloperSandbox() {
       validateSupabaseConfig();
       
       // Sign out using Supabase directly
+      // User will remain on current page (/demo) after logout
       const { error: signOutError } = await supabase.auth.signOut();
 
       if (signOutError) {
@@ -58,11 +60,9 @@ export default function DeveloperSandbox() {
         return;
       }
 
-      // Use window.location.replace('/') to guarantee session termination
-      // and a clean return to the main page without adding to browser history
-      if (typeof window !== 'undefined') {
-        window.location.replace('/');
-      }
+      // No redirect - user stays on /demo page
+      // Auth state will update automatically via onAuthStateChange listener
+      setLoading(false);
     } catch (err) {
       console.error('Unexpected error during logout:', err);
       setError('An unexpected error occurred during logout.');

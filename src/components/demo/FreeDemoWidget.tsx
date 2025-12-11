@@ -5,16 +5,44 @@
  * Simplified demo interface that uses an anonymous/generic API key
  * and requires no login. Provides basic AI recommendation testing
  * functionality for users to try before signing in.
+ * 
+ * Enhanced with:
+ * - Predefined presets bar
+ * - Context toggles (role, mood, group_size)
+ * - Save & Share functionality
+ * - Feedback widget
+ * - Recent results (localStorage)
+ * - Analytics tracking
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { isFeatureEnabled, FEATURE_FLAGS } from '@/lib/utils/featureFlags';
+import { trackEvent } from '@/lib/analytics/trackEvent';
+import PresetsBar from './PresetsBar';
+import ContextToggles, { ContextValues } from './ContextToggles';
+import RecentResults from './RecentResults';
+import SaveShareWidget from './SaveShareWidget';
+import FeedbackWidget from './FeedbackWidget';
 
 /**
- * FreeDemoWidget component - Public demo interface.
+ * Generate a unique result ID
+ */
+function generateResultId(): string {
+  return 'result_' + Date.now() + '_' + Math.random().toString(36).substring(2, 9);
+}
+
+/**
+ * FreeDemoWidget component - Public demo interface with enhancements.
  * 
  * Features:
  * - AI Testing Controls: Vibe, Time, Location inputs
  * - Generate & Test button (uses anonymous API key)
+ * - Predefined presets bar (feature-flagged)
+ * - Context toggles (role, mood, group_size) (feature-flagged)
+ * - Save & Share functionality (feature-flagged)
+ * - Feedback widget (feature-flagged)
+ * - Recent results (feature-flagged)
+ * - Analytics tracking
  * - No authentication required
  * - Basic recommendation display
  */
@@ -25,6 +53,31 @@ export default function FreeDemoWidget() {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [resultId, setResultId] = useState<string | null>(null);
+  const [contextValues, setContextValues] = useState<ContextValues>({
+    role: 'Traveler',
+    mood: 'Relaxed',
+    group_size: 'Solo',
+  });
+  
+  // Check if enhancements are enabled
+  const enhancementsEnabled = isFeatureEnabled(FEATURE_FLAGS.DEMO_ENHANCEMENTS);
+
+  /**
+   * Handles preset selection from PresetsBar
+   */
+  const handlePresetSelect = (presetText: string) => {
+    // For now, insert into vibe field (could be enhanced to parse and distribute)
+    setVibe(presetText);
+  };
+
+  /**
+   * Handles result selection from RecentResults
+   */
+  const handleResultSelect = (resultData: string, selectedResultId: string) => {
+    setResult(resultData);
+    setResultId(selectedResultId);
+  };
 
   /**
    * Handles the Generate & Test action using anonymous API key.
@@ -43,23 +96,69 @@ export default function FreeDemoWidget() {
         return;
       }
 
+      // Generate result ID
+      const newResultId = generateResultId();
+      setResultId(newResultId);
+
+      // Build prompt (visible to user)
+      const visiblePrompt = `Vibe: ${vibe}, Time: ${time}, Location: ${location}`;
+      
+      // Build full prompt with context metadata (hidden, sent to API)
+      const fullPrompt = enhancementsEnabled
+        ? `${visiblePrompt} [Context: Role=${contextValues.role}, Mood=${contextValues.mood}, Group=${contextValues.group_size}]`
+        : visiblePrompt;
+
       // TODO: Use anonymous/generic API key for public access
       // For now, return a mock response
       await new Promise(resolve => setTimeout(resolve, 1000));
-      setResult(
-        JSON.stringify(
-          {
-            vibe,
-            time,
-            location,
-            recommendation: 'Free demo mode: Sign in to unlock advanced features and save your preferences',
-            timestamp: new Date().toISOString(),
-            note: 'This is a free demo. Sign in to access full features.',
-          },
-          null,
-          2
-        )
+      
+      const resultData = JSON.stringify(
+        {
+          result_id: newResultId,
+          vibe,
+          time,
+          location,
+          recommendation: 'Free demo mode: Sign in to unlock advanced features and save your preferences',
+          timestamp: new Date().toISOString(),
+          note: 'This is a free demo. Sign in to access full features.',
+          ...(enhancementsEnabled && {
+            context: {
+              role: contextValues.role,
+              mood: contextValues.mood,
+              group_size: contextValues.group_size,
+            },
+          }),
+        },
+        null,
+        2
       );
+      
+      setResult(resultData);
+
+      // Track analytics
+      if (enhancementsEnabled) {
+        trackEvent('demo_run', {
+          variant: 'free',
+          preset: null, // Could be enhanced to track which preset was used
+          role: contextValues.role,
+          mood: contextValues.mood,
+          group_size: contextValues.group_size,
+          prompt_length: visiblePrompt.length,
+          result_id: newResultId,
+          timestamp: Date.now(),
+        });
+
+        // Save to recent results
+        if (typeof window !== 'undefined' && (window as any).addRecentResult) {
+          (window as any).addRecentResult({
+            id: newResultId,
+            preview: visiblePrompt,
+            timestamp: Date.now(),
+            data: resultData,
+          });
+        }
+      }
+
       setLoading(false);
     } catch (err) {
       console.error('Error generating recommendation:', err);
@@ -70,14 +169,32 @@ export default function FreeDemoWidget() {
 
   return (
     <div style={styles.container}>
-      <div style={styles.card}>
-        <h1 style={styles.title}>Free Demo</h1>
+      <div style={styles.card} id="free-demo-widget">
+        <h1 style={styles.title}>Try a spontaneous micro-adventure — no sign in.</h1>
         <p style={styles.subtitle}>
-          Try our AI-powered activity recommendations - no sign-in required
+          Get instant, personalized recommendations powered by AI
         </p>
 
+        {/* Predefined Presets Bar (feature-flagged) */}
+        {enhancementsEnabled && (
+          <PresetsBar onPresetSelect={handlePresetSelect} disabled={loading} />
+        )}
+
+        {/* Context Toggles (feature-flagged) */}
+        {enhancementsEnabled && (
+          <ContextToggles onChange={setContextValues} disabled={loading} />
+        )}
+
+        {/* Recent Results (feature-flagged) */}
+        {enhancementsEnabled && (
+          <RecentResults
+            onResultSelect={handleResultSelect}
+            currentResultId={resultId || undefined}
+          />
+        )}
+
         {/* AI Testing Controls */}
-        <div style={styles.controls}>
+        <div style={styles.controls} id="free-demo-input">
           <div style={styles.inputGroup}>
             <label style={styles.label} htmlFor="vibe">
               Vibe
@@ -142,10 +259,27 @@ export default function FreeDemoWidget() {
           </div>
         )}
 
-        {result && (
-          <div style={styles.resultBox}>
+        {result && resultId && (
+          <div style={styles.resultBox} id="demo-results">
             <h3 style={styles.resultTitle}>Recommendation Result:</h3>
             <pre style={styles.resultContent}>{result}</pre>
+            
+            {/* Save & Share Widget (feature-flagged) */}
+            {enhancementsEnabled && (
+              <SaveShareWidget
+                resultId={resultId}
+                resultData={result}
+                disabled={loading}
+              />
+            )}
+
+            {/* Feedback Widget (feature-flagged) */}
+            {enhancementsEnabled && (
+              <FeedbackWidget
+                resultId={resultId}
+                disabled={loading}
+              />
+            )}
           </div>
         )}
       </div>

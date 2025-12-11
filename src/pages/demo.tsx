@@ -14,9 +14,11 @@
 
 import React from 'react';
 import { useAuth } from '@/stores/auth';
+import { isFeatureEnabled, FEATURE_FLAGS } from '@/lib/utils/featureFlags';
 import FreeDemoWidget from '@/components/demo/FreeDemoWidget';
 import DeveloperSandbox from '@/components/demo/DeveloperSandbox';
 import AuthPromptCard from '@/components/demo/AuthPromptCard';
+import AdvancedTeaserCard from '@/components/demo/AdvancedTeaserCard';
 
 /**
  * Demo page component - Low-Friction Demo model with Two-Mode Display.
@@ -34,6 +36,7 @@ import AuthPromptCard from '@/components/demo/AuthPromptCard';
  */
 export default function DemoPage() {
   const { authStatus, session } = useAuth();
+  const enhancementsEnabled = isFeatureEnabled(FEATURE_FLAGS.DEMO_ENHANCEMENTS);
 
   // Always render the free demo widget (no authentication required)
   // Conditionally render advanced features based on auth status
@@ -41,6 +44,11 @@ export default function DemoPage() {
     <div style={demoStyles.container}>
       {/* Always visible: Free demo with anonymous API key */}
       <FreeDemoWidget />
+
+      {/* Advanced Features Teaser Card (feature-flagged, only shown when logged out) */}
+      {enhancementsEnabled && authStatus === 'LOGGED_OUT' && (
+        <AdvancedTeaserCard />
+      )}
 
       {/* Visual separator */}
       <div style={demoStyles.separator}>

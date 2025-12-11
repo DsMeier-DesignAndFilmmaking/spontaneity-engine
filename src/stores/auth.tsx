@@ -11,6 +11,7 @@ import React, { createContext, useContext, useEffect, useState, ReactNode } from
 import { supabase, validateSupabaseConfig } from '@/lib/db/supabase';
 import { Session, User } from '@supabase/supabase-js';
 import { getFullUrl } from '@/lib/config/constants';
+import { trackEvent } from '@/lib/analytics/trackEvent';
 
 /**
  * Three-state authentication status values.
@@ -223,6 +224,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
       validateSupabaseConfig();
       const redirectUrl = getFullUrl('/demo');
       
+      // Track sign-in attempt
+      trackEvent('signin_attempt', {
+        provider: 'google',
+        timestamp: Date.now(),
+      });
+      
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
@@ -232,11 +239,30 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
       if (error) {
         console.error('Error signing in with Google:', error);
+        trackEvent('signin_attempt', {
+          provider: 'google',
+          outcome: 'error',
+          error_message: error.message,
+          timestamp: Date.now(),
+        });
         throw error;
       }
+      
+      // Track successful initiation (actual outcome tracked after redirect)
+      trackEvent('signin_attempt', {
+        provider: 'google',
+        outcome: 'initiated',
+        timestamp: Date.now(),
+      });
+      
       // State will be updated automatically by onAuthStateChange listener after redirect
     } catch (error) {
       console.error('Unexpected error signing in with Google:', error);
+      trackEvent('signin_attempt', {
+        provider: 'google',
+        outcome: 'failed',
+        timestamp: Date.now(),
+      });
       throw error;
     }
   };

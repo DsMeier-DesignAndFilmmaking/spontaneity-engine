@@ -7,10 +7,17 @@
  */
 
 import type { AppProps } from 'next/app';
+import { useEffect } from 'react';
 import { AuthProvider } from '@/stores/auth';
+import { initializeAnalytics } from '@/lib/analytics/trackEvent';
 import '../styles/globals.css';
 
 export default function App({ Component, pageProps }: AppProps) {
+  // Initialize analytics on app mount
+  useEffect(() => {
+    initializeAnalytics();
+  }, []);
+
   return (
     <AuthProvider>
       <Component {...pageProps} />

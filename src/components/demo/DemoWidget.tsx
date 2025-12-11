@@ -9,7 +9,7 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/router';
-import { supabase, validateSupabaseConfig } from '@/lib/db/supabase';
+import { useAuth } from '@/stores/auth';
 
 /**
  * DemoWidget component - Main interactive demo interface.
@@ -21,6 +21,7 @@ import { supabase, validateSupabaseConfig } from '@/lib/db/supabase';
  */
 export default function DemoWidget() {
   const router = useRouter();
+  const { signOut } = useAuth();
   const [vibe, setVibe] = useState('');
   const [time, setTime] = useState('');
   const [location, setLocation] = useState('');
@@ -30,24 +31,18 @@ export default function DemoWidget() {
 
   /**
    * Handles the logout process.
-   * Signs out the user from Supabase and redirects to homepage.
+   * Uses the auth store's signOut method which will automatically
+   * update the auth state via the onAuthStateChange listener.
    */
   const handleLogout = async () => {
     try {
-      // Validate Supabase configuration at runtime
-      validateSupabaseConfig();
-      
       setLoading(true);
-      const { error: signOutError } = await supabase.auth.signOut();
-
-      if (signOutError) {
-        console.error('Error signing out:', signOutError);
-        setError('Failed to sign out. Please try again.');
-        setLoading(false);
-        return;
-      }
+      setError(null);
+      
+      await signOut();
 
       // Redirect to homepage after successful logout
+      // The auth store will automatically update to LOGGED_OUT state
       router.push('/');
     } catch (err) {
       console.error('Unexpected error during logout:', err);

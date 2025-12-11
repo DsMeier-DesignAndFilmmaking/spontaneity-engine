@@ -2,70 +2,81 @@
  * demo.tsx
  * Demo page with authentication gate.
  * 
- * Protected route that requires user authentication. Implements client-side
- * authentication checking and redirects unauthenticated users to the homepage.
+ * Protected route that requires user authentication. Implements strict guard pattern
+ * to prevent race conditions by blocking all rendering and redirects until Supabase
+ * has definitively confirmed the session status.
+ * 
+ * Guard Pattern:
+ * 1. BLOCK: If authStatus is 'LOADING', immediately return LoadingSpinner
+ *    - No routing or redirect logic executes in this state
+ * 2. REDIRECT: Only when authStatus transitions to 'LOGGED_OUT' (confirmed)
+ *    - Use router.replace('/') to prevent back-button navigation
+ * 3. RENDER: Only when authStatus is 'LOGGED_IN' (confirmed)
+ *    - Render DeveloperSandbox (DemoWidget) component
  */
 
-import React, { useEffect, useState } from 'react';
-import { getAuthStatus, redirectToLogin } from '@/lib/auth/authHelpers';
-import { Session } from '@supabase/supabase-js';
+import React, { useEffect } from 'react';
+import { useRouter } from 'next/router';
+import { useAuth } from '@/stores/auth';
+import LoadingSpinner from '@/components/layout/LoadingSpinner';
 import DemoWidget from '@/components/demo/DemoWidget';
 
 /**
- * Demo page component with authentication gate.
+ * Demo page component with strict authentication gate.
  * 
- * Authentication Flow:
- * 1. On mount, checks user's session status
- * 2. If not logged in: immediately redirects to homepage (/)
- * 3. If logged in: renders the DemoWidget component
- * 4. While loading: displays a loading screen
+ * Component Lifecycle Sequence:
+ * 1. Component mounts, authStatus is 'LOADING' (initial state)
+ * 2. Return LoadingSpinner immediately - BLOCK all rendering
+ * 3. Auth store completes Supabase session check
+ * 4. authStatus transitions to either 'LOGGED_IN' or 'LOGGED_OUT'
+ * 5. If 'LOGGED_OUT': useEffect executes router.replace('/')
+ * 6. If 'LOGGED_IN': Component re-renders and renders DemoWidget
+ * 
+ * This structure guarantees the redirect decision is only made after
+ * the asynchronous Supabase check is complete, eliminating jump-back flicker.
  */
 export default function DemoPage() {
-  const [session, setSession] = useState<Session | null>(null);
-  const [loading, setLoading] = useState(true);
+  const router = useRouter();
+  const { authStatus, session } = useAuth();
 
+  /**
+   * Enforce Redirect (Only When Confirmed)
+   * 
+   * This useEffect hook ONLY executes when authStatus is definitively 'LOGGED_OUT'.
+   * It does NOT execute during 'LOADING' state, ensuring redirects only happen
+   * after Supabase has confirmed the user is not authenticated.
+   * 
+   * Uses router.replace() instead of router.push() to prevent back-button
+   * navigation to protected pages after logout.
+   */
   useEffect(() => {
-    /**
-     * Check authentication status on component mount.
-     * Uses client-side check since we're in a Next.js page component.
-     */
-    async function checkAuth() {
-      try {
-        const currentSession = await getAuthStatus();
-
-        if (!currentSession) {
-          // User is not authenticated - redirect to homepage
-          redirectToLogin();
-          return;
-        }
-
-        // User is authenticated - set session and render demo
-        setSession(currentSession);
-        setLoading(false);
-      } catch (error) {
-        console.error('Error checking authentication:', error);
-        // On error, redirect to homepage for security
-        redirectToLogin();
-      }
+    // CRITICAL: Only redirect when status is confirmed LOGGED_OUT
+    // This check ensures we never redirect during LOADING state
+    if (authStatus === 'LOGGED_OUT') {
+      router.replace('/');
     }
+  }, [authStatus, router]);
 
-    checkAuth();
-  }, []);
-
-  // Loading state - show loading screen while checking auth
-  if (loading) {
-    return (
-      <div style={loadingStyles.container}>
-        <div style={loadingStyles.content}>
-          <div style={loadingStyles.spinner}></div>
-          <p style={loadingStyles.text}>Loading...</p>
-        </div>
-      </div>
-    );
+  /**
+   * Block Rendering During Load
+   * 
+   * If authStatus is 'LOADING', immediately return LoadingSpinner.
+   * This prevents any routing or redirect logic from executing.
+   * The component will not proceed to render DemoWidget or execute
+   * redirect logic until the state is no longer 'LOADING'.
+   */
+  if (authStatus === 'LOADING') {
+    return <LoadingSpinner />;
   }
 
-  // Authenticated state - render demo widget
-  if (session) {
+  /**
+   * Render Workbench (Only When Confirmed)
+   * 
+   * If authStatus is 'LOGGED_IN', proceed to render the DeveloperSandbox
+   * (DemoWidget) component. This only happens after Supabase has confirmed
+   * the user is authenticated, preventing premature rendering.
+   */
+  if (authStatus === 'LOGGED_IN' && session) {
     return (
       <div style={demoStyles.container}>
         <DemoWidget />
@@ -73,36 +84,14 @@ export default function DemoPage() {
     );
   }
 
-  // Fallback (should not reach here due to redirect, but included for safety)
+  /**
+   * Fallback: LOGGED_OUT state
+   * 
+   * This should rarely be reached because the useEffect above will redirect.
+   * Return null to render nothing while the redirect is processing.
+   */
   return null;
 }
-
-const loadingStyles: { [key: string]: React.CSSProperties } = {
-  container: {
-    minHeight: '100vh',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#f5f5f5',
-  },
-  content: {
-    textAlign: 'center',
-  },
-  spinner: {
-    width: '50px',
-    height: '50px',
-    border: '5px solid #e0e0e0',
-    borderTop: '5px solid #667eea',
-    borderRadius: '50%',
-    animation: 'spin 1s linear infinite',
-    margin: '0 auto 1rem',
-  },
-  text: {
-    fontSize: '1.125rem',
-    color: '#666',
-    margin: 0,
-  },
-};
 
 const demoStyles: { [key: string]: React.CSSProperties } = {
   container: {
@@ -111,18 +100,4 @@ const demoStyles: { [key: string]: React.CSSProperties } = {
     padding: '2rem',
   },
 };
-
-// Add spinner animation
-if (typeof document !== 'undefined') {
-  const style = document.createElement('style');
-  style.textContent = `
-    @keyframes spin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
-    }
-  `;
-  if (document.head) {
-    document.head.appendChild(style);
-  }
-}
 

@@ -2,17 +2,15 @@
  * demo.tsx
  * Demo page with authentication gate.
  * 
- * Protected route that requires user authentication. Implements strict guard pattern
- * to prevent race conditions by blocking all rendering and redirects until Supabase
- * has definitively confirmed the session status.
+ * Protected route that requires user authentication. Implements strict three-state
+ * guard pattern with aggressive session stabilization delay (Final Defense).
  * 
- * Guard Pattern:
- * 1. BLOCK: If authStatus is 'LOADING', immediately return LoadingSpinner
- *    - No routing or redirect logic executes in this state
- * 2. REDIRECT: Only when authStatus transitions to 'LOGGED_OUT' (confirmed)
- *    - Use router.replace('/') to prevent back-button navigation
- * 3. RENDER: Only when authStatus is 'LOGGED_IN' (confirmed)
- *    - Render DeveloperSandbox (DemoWidget) component
+ * Three-State Logic (Aggressive Stabilization):
+ * 1. LOADING: Render LoadingSpinner and do nothing else (block all rendering)
+ * 2. LOGGED_OUT: Execute router.replace('/') for hard redirect
+ * 3. LOGGED_IN: Implement 100ms stabilization delay before rendering DeveloperSandbox
+ *    - This is the final defense against session being read too quickly
+ *    - Ensures browser has fully processed session cookie before rendering
  */
 
 import React, { useEffect, useState } from 'react';
@@ -49,14 +47,12 @@ export default function DemoPage() {
   const [sessionReady, setSessionReady] = useState(false);
 
   /**
-   * Enforce Redirect (Only When Confirmed)
+   * State 2: LOGGED_OUT - Execute Redirect
    * 
-   * This useEffect hook ONLY executes when authStatus is definitively 'LOGGED_OUT'.
-   * It does NOT execute during 'LOADING' state, ensuring redirects only happen
-   * after Supabase has confirmed the user is not authenticated.
-   * 
-   * Uses router.replace() instead of router.push() to prevent back-button
-   * navigation to protected pages after logout.
+   * If authStatus === 'LOGGED_OUT': Execute router.replace('/') for hard redirect.
+   * This useEffect ONLY executes when authStatus is definitively 'LOGGED_OUT',
+   * NOT during 'LOADING' state. Uses router.replace() to prevent back-button
+   * navigation to protected pages.
    */
   useEffect(() => {
     // CRITICAL: Only redirect when status is confirmed LOGGED_OUT
@@ -67,15 +63,15 @@ export default function DemoPage() {
   }, [authStatus, router]);
 
   /**
-   * Aggressive Session Stabilization Delay (Last Resort)
+   * State 3: LOGGED_IN - Aggressive Session Stabilization Delay (Final Defense)
    * 
-   * After the session is confirmed LOGGED_IN, wait 100 milliseconds before
-   * allowing the component to fully render. This ensures the browser has
-   * fully loaded and processed the session state, preventing race conditions
-   * and snap-back issues.
+   * If authStatus === 'LOGGED_IN': Implement a 100ms stabilization delay before
+   * rendering the main DeveloperSandbox (DemoWidget).
    * 
-   * This is a final safety measure that runs AFTER Supabase has confirmed
-   * the session status, but BEFORE rendering the protected content.
+   * This is the final defense against the session being read too quickly before
+   * the cookie fully loads. The delay ensures the browser has fully processed
+   * the session state and cookie before rendering protected content, preventing
+   * race conditions and snap-back issues.
    */
   useEffect(() => {
     // Only apply delay if user is confirmed LOGGED_IN with a valid session
@@ -83,7 +79,7 @@ export default function DemoPage() {
       // Reset sessionReady to false when status changes to LOGGED_IN
       setSessionReady(false);
       
-      // Aggressive delay: Wait 100ms to ensure browser has fully processed session
+      // Aggressive 100ms delay: Final defense to ensure browser has fully processed session cookie
       const delayTimer = setTimeout(() => {
         setSessionReady(true);
       }, 100);
@@ -99,27 +95,30 @@ export default function DemoPage() {
   }, [authStatus, session]);
 
   /**
-   * Block Rendering During Load
+   * State 1: LOADING - Block All Rendering
    * 
-   * If authStatus is 'LOADING', immediately return LoadingSpinner.
-   * This prevents any routing or redirect logic from executing.
-   * The component will not proceed to render DemoWidget or execute
-   * redirect logic until the state is no longer 'LOADING'.
+   * If authStatus === 'LOADING': Render LoadingSpinner and do nothing else.
+   * No routing or redirect logic executes in this state. The component blocks
+   * all rendering until Supabase has definitively confirmed the session status.
    */
   if (authStatus === 'LOADING') {
     return <LoadingSpinner />;
   }
 
   /**
-   * Render Workbench (Only When Confirmed + Stabilized)
+   * State 3: LOGGED_IN - Render DeveloperSandbox (After Stabilization)
    * 
-   * Render the DeveloperSandbox (DemoWidget) component only when:
+   * If authStatus === 'LOGGED_IN': Render the main DeveloperSandbox (DemoWidget)
+   * component ONLY after the 100ms stabilization delay has completed.
+   * 
+   * Requirements before rendering:
    * 1. authStatus is 'LOGGED_IN' (confirmed by Supabase)
    * 2. session exists (valid session object)
-   * 3. sessionReady is true (100ms delay has completed after session confirmation)
+   * 3. sessionReady is true (100ms delay has completed - final defense)
    * 
    * The sessionReady check ensures the browser has fully processed the session
    * cookie before rendering, preventing race conditions and snap-back issues.
+   * This is the final defense against the session being read too quickly.
    */
   if (authStatus === 'LOGGED_IN' && session && sessionReady) {
     return (
@@ -130,10 +129,11 @@ export default function DemoPage() {
   }
 
   /**
-   * Show loading while waiting for session stabilization
+   * State 3 (Waiting): Show LoadingSpinner During Stabilization Delay
    * 
    * If authStatus is LOGGED_IN but sessionReady is false, we're in the
-   * 100ms stabilization delay window. Show loading spinner during this time.
+   * 100ms stabilization delay window. Show loading spinner during this time
+   * to prevent any rendering before the session cookie is fully processed.
    */
   if (authStatus === 'LOGGED_IN' && session && !sessionReady) {
     return <LoadingSpinner />;

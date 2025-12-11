@@ -18,11 +18,11 @@
 import React, { useState, useEffect } from 'react';
 import { isFeatureEnabled, FEATURE_FLAGS } from '@/lib/utils/featureFlags';
 import { trackEvent } from '@/lib/analytics/trackEvent';
-import PresetsBar from './PresetsBar';
-import ContextToggles, { ContextValues } from './ContextToggles';
+import SettingsModal from './SettingsModal';
 import RecentResults from './RecentResults';
 import SaveShareWidget from './SaveShareWidget';
 import FeedbackWidget from './FeedbackWidget';
+import type { ContextValues } from './ContextToggles';
 
 /**
  * Generate a unique result ID
@@ -62,13 +62,29 @@ export default function FreeDemoWidget() {
   
   // Check if enhancements are enabled
   const enhancementsEnabled = isFeatureEnabled(FEATURE_FLAGS.DEMO_ENHANCEMENTS);
+  
+  // Settings modal state
+  const [showSettings, setShowSettings] = useState(false);
 
   /**
-   * Handles preset selection from PresetsBar
+   * Handles preset selection from Settings Modal
    */
   const handlePresetSelect = (presetText: string) => {
-    // For now, insert into vibe field (could be enhanced to parse and distribute)
+    // Insert into vibe field (could be enhanced to parse and distribute)
     setVibe(presetText);
+    // Close modal after preset selection (optional - user can still keep it open)
+    // setShowSettings(false);
+  };
+
+  /**
+   * Handles opening settings modal
+   */
+  const handleOpenSettings = () => {
+    setShowSettings(true);
+    trackEvent('cta_click', {
+      cta_name: 'open_settings',
+      timestamp: Date.now(),
+    });
   };
 
   /**
@@ -170,20 +186,52 @@ export default function FreeDemoWidget() {
   return (
     <div style={styles.container}>
       <div style={styles.card} id="free-demo-widget">
-        <h1 style={styles.title}>Try a spontaneous micro-adventure — no sign in.</h1>
-        <p style={styles.subtitle}>
-          Get instant, personalized recommendations powered by AI
-        </p>
-
-        {/* Predefined Presets Bar (feature-flagged) */}
-        {enhancementsEnabled && (
-          <PresetsBar onPresetSelect={handlePresetSelect} disabled={loading} />
-        )}
-
-        {/* Context Toggles (feature-flagged) */}
-        {enhancementsEnabled && (
-          <ContextToggles onChange={setContextValues} disabled={loading} />
-        )}
+        {/* Header with Settings Button */}
+        <div style={styles.headerRow}>
+          <div style={styles.headerContent}>
+            <h1 style={styles.title}>Try a spontaneous micro-adventure — no sign in.</h1>
+            <p style={styles.subtitle}>
+              Get instant, personalized recommendations powered by AI
+            </p>
+          </div>
+          {/* Settings Button (feature-flagged) */}
+          {enhancementsEnabled && (
+            <button
+              type="button"
+              onClick={handleOpenSettings}
+              style={{
+                ...styles.settingsButton,
+                ...(loading ? styles.settingsButtonDisabled : {}),
+              }}
+              aria-label="Settings"
+              disabled={loading}
+            >
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 20 20"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+                style={styles.settingsIcon}
+              >
+                <path
+                  d="M10 12.5C11.3807 12.5 12.5 11.3807 12.5 10C12.5 8.61929 11.3807 7.5 10 7.5C8.61929 7.5 7.5 8.61929 7.5 10C7.5 11.3807 8.61929 12.5 10 12.5Z"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+                <path
+                  d="M16.6667 12.0833C16.575 12.3167 16.4417 12.525 16.275 12.7C16.1083 12.875 15.9 13.0083 15.6667 13.1L13.5833 14.0083C13.2417 14.1583 12.8333 14.075 12.575 13.8083L11.425 12.6583C11.1917 12.6583 10.9583 12.6083 10.7417 12.5167L10.1833 14.6667C10.075 15.0333 9.75 15.2917 9.375 15.3167H6.625C6.25 15.2917 5.925 15.0333 5.81667 14.6583L5.25833 12.5083C5.04167 12.6 4.80833 12.65 4.575 12.65L3.425 13.8C3.15833 14.0583 2.75 14.1417 2.41667 13.9917L0.333333 13.0833C0.1 12.9917 -0.0333334 12.7833 -0.125 12.55C-0.216667 12.3167 -0.216667 12.0583 -0.125 11.825L0.791667 9.74167C0.941667 9.4 0.858333 8.99167 0.591667 8.73333L-0.558333 7.58333C-0.816667 7.31667 -0.9 6.90833 -0.75 6.575L0.158333 4.49167C0.25 4.25833 0.383333 4.05 0.55 3.875C0.716667 3.7 0.925 3.56667 1.15833 3.475L3.24167 2.56667C3.58333 2.41667 3.99167 2.5 4.25833 2.76667L5.40833 3.91667C5.64167 3.91667 5.875 3.96667 6.09167 4.05833L6.65 1.90833C6.75833 1.54167 7.08333 1.28333 7.45833 1.25833H10.2083C10.5833 1.28333 10.9083 1.54167 11.0167 1.91667L11.575 4.06667C11.7917 3.975 12.025 3.925 12.2583 3.925L13.4083 2.775C13.675 2.51667 14.0833 2.43333 14.4167 2.58333L16.5 3.49167C16.7333 3.58333 16.8667 3.79167 16.9583 4.025C17.05 4.25833 17.05 4.51667 16.9583 4.75L16.0417 6.83333C15.8917 7.175 15.975 7.58333 16.2417 7.85L17.3917 9C17.6583 9.26667 17.7417 9.675 17.5917 10.0083L16.6667 12.0833Z"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </button>
+          )}
+        </div>
 
         {/* Recent Results (feature-flagged) */}
         {enhancementsEnabled && (
@@ -282,6 +330,18 @@ export default function FreeDemoWidget() {
             )}
           </div>
         )}
+
+        {/* Settings Modal (feature-flagged) */}
+        {enhancementsEnabled && (
+          <SettingsModal
+            isOpen={showSettings}
+            onClose={() => setShowSettings(false)}
+            onPresetSelect={handlePresetSelect}
+            onContextChange={setContextValues}
+            currentContextValues={contextValues}
+            disabled={loading}
+          />
+        )}
       </div>
     </div>
   );
@@ -292,12 +352,23 @@ const styles: { [key: string]: React.CSSProperties } = {
     maxWidth: '800px',
     margin: '0 auto',
     padding: '2rem 1rem',
+    position: 'relative',
   },
   card: {
     backgroundColor: '#ffffff',
     borderRadius: '12px',
     padding: '2.5rem',
     boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+    position: 'relative',
+  },
+  headerRow: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: '1rem',
+  },
+  headerContent: {
+    flex: 1,
   },
   title: {
     fontSize: '2rem',
@@ -309,6 +380,29 @@ const styles: { [key: string]: React.CSSProperties } = {
     fontSize: '1rem',
     color: '#666',
     marginBottom: '2rem',
+  },
+  settingsButton: {
+    backgroundColor: 'transparent',
+    border: '1px solid #e0e0e0',
+    borderRadius: '8px',
+    padding: '0.5rem',
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    transition: 'all 0.2s',
+    outline: 'none',
+    color: '#666',
+    flexShrink: 0,
+    marginLeft: '1rem',
+    marginTop: '0.25rem',
+  },
+  settingsButtonDisabled: {
+    opacity: 0.6,
+    cursor: 'not-allowed',
+  },
+  settingsIcon: {
+    display: 'block',
   },
   controls: {
     display: 'flex',

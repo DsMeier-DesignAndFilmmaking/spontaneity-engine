@@ -5,24 +5,42 @@
  */
 
 import React from 'react';
-import { useRouter } from 'next/router';
+import Link from 'next/link';
 
 /**
  * Homepage component - Marketing landing page.
  * 
  * Provides a clean, welcoming interface with a prominent call-to-action
- * to try the demo. The "Try the Demo" button uses window.location.replace()
- * for reliable navigation without adding to browser history.
+ * to try the demo. The "Try the Demo" button uses Next.js Link component
+ * for reliable navigation that works even before client-side hydration.
+ * 
+ * Using Link ensures:
+ * - Navigation works on first render (before JavaScript loads)
+ * - Better accessibility (native anchor tag)
+ * - Prefetching of the /demo page
+ * - No hydration dependency issues
+ * 
+ * Fallback: If Link fails for any reason, onClick handler provides
+ * hard redirect using window.location.href for maximum reliability.
  */
 export default function HomePage() {
-  const router = useRouter();
-
   /**
-   * Handles navigation to the demo page.
-   * Uses Next.js router for client-side navigation that works in all environments.
+   * Hard redirect fallback handler.
+   * 
+   * This function provides a safety mechanism in case the Link component
+   * fails for any reason. It forces a full browser navigation using
+   * window.location.href, which bypasses any client-side routing issues
+   * and ensures reliable navigation even if Next.js routing fails.
+   * 
+   * This is a defense-in-depth approach - Link is the primary method,
+   * but this ensures navigation always works.
    */
-  const handleTryDemo = () => {
-    router.push('/demo');
+  const handleHardRedirect = (e: React.MouseEvent<HTMLButtonElement>) => {
+    // Only use hard redirect if Link somehow fails
+    // This provides a safety net for edge cases
+    if (typeof window !== 'undefined') {
+      window.location.href = '/demo';
+    }
   };
 
   return (
@@ -36,13 +54,16 @@ export default function HomePage() {
           Experience the future of personalized recommendations. Get instant,
           creative suggestions for activities tailored to your vibe, time, and location.
         </p>
-        <button
-          onClick={handleTryDemo}
-          style={styles.demoButton}
-          aria-label="Try the Demo"
-        >
-          Try the Demo
-        </button>
+        <Link href="/demo" style={styles.linkWrapper}>
+          <button
+            type="button"
+            onClick={handleHardRedirect}
+            style={styles.demoButton}
+            aria-label="Try the Demo"
+          >
+            Try the Demo
+          </button>
+        </Link>
       </div>
     </div>
   );
@@ -80,6 +101,10 @@ const styles: { [key: string]: React.CSSProperties } = {
     opacity: 0.9,
     lineHeight: '1.6',
   },
+  linkWrapper: {
+    textDecoration: 'none',
+    display: 'inline-block',
+  },
   demoButton: {
     fontSize: '1.25rem',
     fontWeight: '600',
@@ -92,6 +117,8 @@ const styles: { [key: string]: React.CSSProperties } = {
     boxShadow: '0 10px 30px rgba(0, 0, 0, 0.3)',
     transition: 'all 0.3s ease',
     outline: 'none',
+    display: 'block',
+    width: '100%',
   },
 };
 

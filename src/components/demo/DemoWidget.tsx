@@ -8,7 +8,7 @@
  */
 
 import React, { useState } from 'react';
-import { supabase } from '@/lib/db/supabase';
+import { supabase, validateSupabaseConfig } from '@/lib/db/supabase';
 
 /**
  * DemoWidget component - Main interactive demo interface.
@@ -32,6 +32,9 @@ export default function DemoWidget() {
    */
   const handleLogout = async () => {
     try {
+      // Validate Supabase configuration at runtime
+      validateSupabaseConfig();
+      
       setLoading(true);
       const { error: signOutError } = await supabase.auth.signOut();
 

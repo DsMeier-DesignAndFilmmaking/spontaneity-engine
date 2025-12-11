@@ -13,12 +13,8 @@
 import { initializeApp, getApps, FirebaseApp } from 'firebase/app';
 import { getFirestore, Firestore } from 'firebase/firestore';
 
-// Validate environment variable
-const firebaseApiKey = process.env.FIREBASE_API_KEY;
-
-if (!firebaseApiKey) {
-  throw new Error('Missing FIREBASE_API_KEY environment variable');
-}
+// Get environment variable (may be undefined during build)
+const firebaseApiKey = process.env.FIREBASE_API_KEY || '';
 
 /**
  * Firebase configuration object.
@@ -27,10 +23,13 @@ if (!firebaseApiKey) {
  * such as project ID, auth domain, etc. For now, we're using the API key
  * from environment variables.
  * 
+ * Note: Environment variables are validated at runtime when the client is used,
+ * not at module load time, to allow Next.js builds to complete successfully.
+ * 
  * TODO: Add additional Firebase config values to .env.local when Firebase project is created
  */
 const firebaseConfig = {
-  apiKey: firebaseApiKey,
+  apiKey: firebaseApiKey || 'placeholder-key',
   // Add additional config properties as needed:
   // projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
   // authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
@@ -44,13 +43,17 @@ const firebaseConfig = {
  * 
  * Uses getApps() to prevent multiple initializations in development
  * (Next.js hot reload can cause multiple initializations).
+ * 
+ * Only initializes if API key is available to prevent build errors.
  */
-let firebaseApp: FirebaseApp;
+let firebaseApp: FirebaseApp | null = null;
 
-if (getApps().length === 0) {
-  firebaseApp = initializeApp(firebaseConfig);
-} else {
-  firebaseApp = getApps()[0];
+if (firebaseApiKey && firebaseApiKey !== '') {
+  if (getApps().length === 0) {
+    firebaseApp = initializeApp(firebaseConfig);
+  } else {
+    firebaseApp = getApps()[0];
+  }
 }
 
 /**
@@ -63,14 +66,33 @@ if (getApps().length === 0) {
  * - High-volume event tracking
  * - Performance metrics
  * 
+ * Note: This will be null if Firebase is not configured. Validate using
+ * validateFirebaseConfig() before use.
+ * 
  * @example
  * ```ts
- * import { db } from '@/lib/db/firebase';
+ * import { db, validateFirebaseConfig } from '@/lib/db/firebase';
+ * validateFirebaseConfig(); // Throws if not configured
  * import { collection, addDoc } from 'firebase/firestore';
  * await addDoc(collection(db, 'usage_logs'), { ... });
  * ```
  */
-export const db: Firestore = getFirestore(firebaseApp);
+export const db: Firestore | null = firebaseApp ? getFirestore(firebaseApp) : null;
+
+/**
+ * Validates that Firebase environment variables are configured.
+ * Call this function before using the Firestore client in runtime code.
+ * 
+ * @throws Error if environment variables are missing
+ */
+export function validateFirebaseConfig(): void {
+  if (!firebaseApiKey || firebaseApiKey === '') {
+    throw new Error('Missing FIREBASE_API_KEY environment variable');
+  }
+  if (!firebaseApp || !db) {
+    throw new Error('Firebase is not initialized. Check FIREBASE_API_KEY environment variable.');
+  }
+}
 
 /**
  * Firebase app instance (exported for advanced use cases)

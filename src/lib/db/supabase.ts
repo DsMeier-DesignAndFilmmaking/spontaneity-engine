@@ -5,18 +5,11 @@
  */
 
 import { createClient } from '@supabase/supabase-js';
+import type { SupabaseClient as SupabaseClientType } from '@supabase/supabase-js';
 
-// Validate environment variables
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-if (!supabaseUrl) {
-  throw new Error('Missing NEXT_PUBLIC_SUPABASE_URL environment variable');
-}
-
-if (!supabaseAnonKey) {
-  throw new Error('Missing NEXT_PUBLIC_SUPABASE_ANON_KEY environment variable');
-}
+// Get environment variables (may be undefined during build)
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 
 /**
  * Initialized Supabase client instance.
@@ -25,22 +18,44 @@ if (!supabaseAnonKey) {
  * Use this client for all Supabase operations including authentication,
  * database queries, and real-time subscriptions.
  * 
+ * Note: Environment variables are validated at runtime when the client is used,
+ * not at module load time, to allow Next.js builds to complete successfully.
+ * 
  * @example
  * ```ts
  * import { supabase } from '@/lib/db/supabase';
  * const { data, error } = await supabase.from('users').select('*');
  * ```
  */
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    persistSession: true,
-    autoRefreshToken: true,
-    detectSessionInUrl: true,
-  },
-});
+export const supabase: SupabaseClientType = createClient(
+  supabaseUrl || 'https://placeholder.supabase.co',
+  supabaseAnonKey || 'placeholder-key',
+  {
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: true,
+    },
+  }
+);
+
+/**
+ * Validates that Supabase environment variables are configured.
+ * Call this function before using the client in runtime code.
+ * 
+ * @throws Error if environment variables are missing
+ */
+export function validateSupabaseConfig(): void {
+  if (!supabaseUrl || supabaseUrl === '') {
+    throw new Error('Missing NEXT_PUBLIC_SUPABASE_URL environment variable');
+  }
+  if (!supabaseAnonKey || supabaseAnonKey === '') {
+    throw new Error('Missing NEXT_PUBLIC_SUPABASE_ANON_KEY environment variable');
+  }
+}
 
 /**
  * Type helper for Supabase database types (can be extended when database schema is defined)
  */
-export type SupabaseClient = typeof supabase;
+export type { SupabaseClientType as SupabaseClient };
 

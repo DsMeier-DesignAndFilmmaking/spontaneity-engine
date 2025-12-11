@@ -4,7 +4,7 @@
  * Provides utilities for checking auth status and handling redirects.
  */
 
-import { supabase } from '@/lib/db/supabase';
+import { supabase, validateSupabaseConfig } from '@/lib/db/supabase';
 import { Session } from '@supabase/supabase-js';
 
 /**
@@ -37,6 +37,9 @@ export const FIXED_REDIRECT_PATH = `${process.env.NEXT_PUBLIC_BASE_URL || 'http:
  */
 export async function getAuthStatus(): Promise<Session | null> {
   try {
+    // Validate Supabase configuration at runtime
+    validateSupabaseConfig();
+    
     const { data: { session }, error } = await supabase.auth.getSession();
 
     if (error) {

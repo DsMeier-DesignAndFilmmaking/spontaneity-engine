@@ -10,7 +10,8 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 import { createClient } from '@supabase/supabase-js';
 import { SpontaneityEngine } from '@/engine/SpontaneityEngine';
 import { GeminiAdapter, OpenAIAdapter } from '@/engine/ModelAdapter';
-import { db } from '@/lib/db/firebase';
+import { db, validateFirebaseConfig } from '@/lib/db/firebase';
+import { validateSupabaseConfig } from '@/lib/db/supabase';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 
 /**
@@ -43,6 +44,9 @@ interface SpontaneityResponse {
  */
 async function validateSession(req: NextApiRequest) {
   try {
+    // Validate Supabase configuration
+    validateSupabaseConfig();
+    
     // Get the authorization header
     const authHeader = req.headers.authorization;
     
@@ -100,6 +104,14 @@ async function logRequest(
   error: string | undefined
 ) {
   try {
+    // Validate Firebase configuration before logging
+    // This will throw if Firebase is not configured, which is fine - we catch and log the error
+    validateFirebaseConfig();
+    
+    if (!db) {
+      throw new Error('Firestore database is not initialized');
+    }
+    
     await addDoc(collection(db, 'engine_requests'), {
       userId,
       userInput: userInput.substring(0, 500), // Limit input length

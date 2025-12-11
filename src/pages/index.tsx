@@ -5,6 +5,7 @@
  */
 
 import React from 'react';
+import { useRouter } from 'next/router';
 
 /**
  * Homepage component - Marketing landing page.
@@ -14,12 +15,14 @@ import React from 'react';
  * for reliable navigation without adding to browser history.
  */
 export default function HomePage() {
+  const router = useRouter();
+
   /**
    * Handles navigation to the demo page.
-   * Uses window.location.replace() to prevent back-button navigation.
+   * Uses Next.js router for client-side navigation that works in all environments.
    */
   const handleTryDemo = () => {
-    window.location.replace('/demo');
+    router.push('/demo');
   };
 
   return (

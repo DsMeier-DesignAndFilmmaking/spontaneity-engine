@@ -10,13 +10,12 @@ import { Session } from '@supabase/supabase-js';
 /**
  * Fixed redirect path for authenticated users.
  * 
- * This path is constructed from the NEXT_PUBLIC_BASE_URL environment variable
- * to ensure consistent redirect behavior across different deployment environments.
+ * This path uses a relative URL that works in all environments (localhost, Vercel, etc.).
+ * For absolute URLs, use NEXT_PUBLIC_BASE_URL environment variable in production.
  * 
- * Example: If NEXT_PUBLIC_BASE_URL is 'http://localhost:3000',
- * FIXED_REDIRECT_PATH will be 'http://localhost:3000/demo'
+ * Note: Using relative path ensures it works regardless of deployment URL.
  */
-export const FIXED_REDIRECT_PATH = `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/demo`;
+export const FIXED_REDIRECT_PATH = '/demo';
 
 /**
  * Gets the current authentication status and session data.
@@ -81,12 +80,9 @@ export function redirectToLogin(): void {
     return;
   }
 
-  // Use the base URL from environment variable, defaulting to root
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
-  const loginPath = `${baseUrl}/`;
-
-  // Use replace() instead of assign() to prevent back button navigation
-  window.location.replace(loginPath);
+  // Use relative path to work in all environments (localhost, Vercel, etc.)
+  // This ensures the redirect works regardless of the deployment URL
+  window.location.replace('/');
 }
 
 /**

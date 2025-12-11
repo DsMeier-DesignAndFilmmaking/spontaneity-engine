@@ -8,6 +8,7 @@
  */
 
 import React, { useState } from 'react';
+import { useRouter } from 'next/router';
 import { supabase, validateSupabaseConfig } from '@/lib/db/supabase';
 
 /**
@@ -19,6 +20,7 @@ import { supabase, validateSupabaseConfig } from '@/lib/db/supabase';
  * - Log Out button for session management
  */
 export default function DemoWidget() {
+  const router = useRouter();
   const [vibe, setVibe] = useState('');
   const [time, setTime] = useState('');
   const [location, setLocation] = useState('');
@@ -46,7 +48,7 @@ export default function DemoWidget() {
       }
 
       // Redirect to homepage after successful logout
-      window.location.replace('/');
+      router.push('/');
     } catch (err) {
       console.error('Unexpected error during logout:', err);
       setError('An unexpected error occurred during logout.');

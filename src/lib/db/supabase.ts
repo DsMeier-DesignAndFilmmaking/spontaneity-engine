@@ -8,18 +8,33 @@ import { createClient } from '@supabase/supabase-js';
 import type { SupabaseClient as SupabaseClientType } from '@supabase/supabase-js';
 
 // Get environment variables (may be undefined during build)
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+const supabaseUrlEnv = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseAnonKeyEnv = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+// Check if we have real environment variables (not placeholders)
+// Valid Supabase URLs follow the pattern: https://[project-ref].supabase.co
+const hasValidConfig = supabaseUrlEnv && 
+                       supabaseUrlEnv.trim() !== '' && 
+                       supabaseUrlEnv.startsWith('https://') &&
+                       supabaseUrlEnv.includes('.supabase.co') &&
+                       supabaseAnonKeyEnv && 
+                       supabaseAnonKeyEnv.trim() !== '';
+
+// Use actual values if available, otherwise use valid placeholder format
+const supabaseUrl = hasValidConfig 
+  ? supabaseUrlEnv!.trim()
+  : 'https://abcdefghijklmnop.supabase.co';
+  
+const supabaseAnonKey = hasValidConfig
+  ? supabaseAnonKeyEnv!.trim()
+  : 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0';
 
 /**
  * Initialized Supabase client instance.
  * 
  * This client is configured to work in both server-side and client-side contexts.
- * Use this client for all Supabase operations including authentication,
- * database queries, and real-time subscriptions.
- * 
- * Note: Environment variables are validated at runtime when the client is used,
- * not at module load time, to allow Next.js builds to complete successfully.
+ * If environment variables are not set, a placeholder client is created that will
+ * fail gracefully when used (operations will return errors rather than crashing).
  * 
  * @example
  * ```ts
@@ -28,13 +43,13 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
  * ```
  */
 export const supabase: SupabaseClientType = createClient(
-  supabaseUrl || 'https://placeholder.supabase.co',
-  supabaseAnonKey || 'placeholder-key',
+  supabaseUrl,
+  supabaseAnonKey,
   {
     auth: {
-      persistSession: true,
-      autoRefreshToken: true,
-      detectSessionInUrl: true,
+      persistSession: hasValidConfig,
+      autoRefreshToken: hasValidConfig,
+      detectSessionInUrl: hasValidConfig,
     },
   }
 );
@@ -43,14 +58,11 @@ export const supabase: SupabaseClientType = createClient(
  * Validates that Supabase environment variables are configured.
  * Call this function before using the client in runtime code.
  * 
- * @throws Error if environment variables are missing
+ * @throws Error if environment variables are missing or using placeholder values
  */
 export function validateSupabaseConfig(): void {
-  if (!supabaseUrl || supabaseUrl === '') {
-    throw new Error('Missing NEXT_PUBLIC_SUPABASE_URL environment variable');
-  }
-  if (!supabaseAnonKey || supabaseAnonKey === '') {
-    throw new Error('Missing NEXT_PUBLIC_SUPABASE_ANON_KEY environment variable');
+  if (!hasValidConfig) {
+    throw new Error('Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY environment variables');
   }
 }
 
@@ -58,4 +70,3 @@ export function validateSupabaseConfig(): void {
  * Type helper for Supabase database types (can be extended when database schema is defined)
  */
 export type { SupabaseClientType as SupabaseClient };
-

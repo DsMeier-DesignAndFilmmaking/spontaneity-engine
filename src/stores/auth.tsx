@@ -114,11 +114,25 @@ export function AuthProvider({ children }: AuthProviderProps) {
       return;
     }
 
-    // Validate Supabase configuration
+    // Validate Supabase configuration - fail gracefully if not configured
     try {
       validateSupabaseConfig();
     } catch (error) {
-      console.error('Supabase configuration invalid:', error);
+      console.warn('Supabase configuration invalid or not set. Auth features will be disabled:', error);
+      setAuthState({
+        ...defaultAuthState,
+        authStatus: 'LOGGED_OUT',
+        initialized: true,
+      });
+      return;
+    }
+
+    // Check if using placeholder values - if so, skip auth initialization
+    const envUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const envKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    
+    if (!envUrl || envUrl.trim() === '' || !envKey || envKey.trim() === '') {
+      console.warn('Supabase environment variables not configured. Auth features disabled.');
       setAuthState({
         ...defaultAuthState,
         authStatus: 'LOGGED_OUT',

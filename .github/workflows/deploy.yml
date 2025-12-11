@@ -9,7 +9,7 @@ on:
       - main
 
 jobs:
-  deploy:
+  build:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -27,14 +27,46 @@ jobs:
       - name: Build project
         run: npm run build
         env:
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
-          NEXT_PUBLIC_BASE_URL: ${{ secrets.NEXT_PUBLIC_BASE_URL }}
-          # Add other environment variables as needed
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || '' }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || '' }}
+          NEXT_PUBLIC_BASE_URL: ${{ secrets.NEXT_PUBLIC_BASE_URL || '' }}
+          # Build will succeed even without these env vars (they're validated at runtime)
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    # Only deploy if we're on main branch and pushing (not PRs)
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check Vercel secrets
+        id: check-secrets
+        run: |
+          if [ -z "${{ secrets.VERCEL_TOKEN }}" ]; then
+            echo "skipping=true" >> $GITHUB_OUTPUT
+            echo "⚠️ VERCEL_TOKEN secret not found. Skipping deployment."
+            echo "📖 See SETUP_VERCEL_SECRETS.md for setup instructions."
+          else
+            echo "skipping=false" >> $GITHUB_OUTPUT
+            echo "✅ Vercel secrets found. Proceeding with deployment."
+          fi
+
+      - name: Setup Node.js
+        if: steps.check-secrets.outputs.skipping == 'false'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        if: steps.check-secrets.outputs.skipping == 'false'
+        run: npm ci
 
       - name: Deploy to Vercel
+        if: steps.check-secrets.outputs.skipping == 'false'
         uses: amondnet/vercel-action@v25
-        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         with:
           vercel-token: ${{ secrets.VERCEL_TOKEN }}
           vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}

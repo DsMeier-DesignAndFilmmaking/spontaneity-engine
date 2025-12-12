@@ -17,6 +17,8 @@ import { useAuth } from '@/stores/auth';
 import FreeDemoWidget from '@/components/demo/FreeDemoWidget';
 import DeveloperSandbox from '@/components/demo/DeveloperSandbox';
 import AuthPromptCard from '@/components/demo/AuthPromptCard';
+import LeadGenCTA from '@/components/demo/LeadGenCTA';
+import ToastContainer from '@/components/demo/ToastContainer';
 
 /**
  * Demo page component - Low-Friction Demo model with Two-Mode Display.
@@ -39,6 +41,14 @@ export default function DemoPage() {
   // Conditionally render advanced features based on auth status
   return (
     <div style={demoStyles.container}>
+      {/* Developer Story Header */}
+      <div style={demoStyles.header} data-header>
+        <h1 style={demoStyles.headerTitle}>Experience the Spontaneity Engine in action.</h1>
+        <p style={demoStyles.headerSubtext}>
+          Generate instant micro-adventures or unlock the full developer sandbox with routing, constraints, and enterprise-ready workflows.
+        </p>
+      </div>
+
       {/* Grid layout: Free Demo and Advanced Features */}
       <div style={demoStyles.gridContainer} data-grid-container>
         {/* Left column: Free Demo (always visible) */}
@@ -65,6 +75,12 @@ export default function DemoPage() {
           )}
         </div>
       </div>
+
+      {/* Lead Generation CTA */}
+      <LeadGenCTA />
+
+      {/* Toast Container (visual only framework) */}
+      <ToastContainer />
     </div>
   );
 }
@@ -74,6 +90,28 @@ const demoStyles: { [key: string]: React.CSSProperties } = {
     minHeight: '100vh',
     backgroundColor: '#f5f5f5',
     padding: '2.5rem 1rem',
+  },
+  header: {
+    maxWidth: '1280px',
+    margin: '0 auto 3rem auto',
+    padding: '0 1rem',
+    textAlign: 'center',
+  },
+  headerTitle: {
+    fontSize: '2rem',
+    fontWeight: '700',
+    color: '#111827',
+    marginBottom: '1rem',
+    lineHeight: '1.2',
+  },
+  headerSubtext: {
+    fontSize: '1.125rem',
+    color: '#6b7280',
+    lineHeight: '1.6',
+    margin: 0,
+    maxWidth: '700px',
+    marginLeft: 'auto',
+    marginRight: 'auto',
   },
   gridContainer: {
     display: 'grid',
@@ -123,6 +161,40 @@ if (typeof document !== 'undefined') {
       }
       [data-demo-card]:hover {
         box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05) !important;
+      }
+      /* Result panel animation */
+      [data-result-panel] {
+        animation: fadeIn 0.3s ease-in;
+      }
+      @keyframes fadeIn {
+        from {
+          opacity: 0;
+          transform: translateY(10px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+      /* Developer drawer animation */
+      [data-developer-drawer] {
+        animation: slideDown 0.2s ease-out;
+      }
+      @keyframes slideDown {
+        from {
+          opacity: 0;
+          max-height: 0;
+        }
+        to {
+          opacity: 1;
+          max-height: 200px;
+        }
+      }
+      /* Mobile header alignment */
+      @media (max-width: 640px) {
+        [data-header] {
+          text-align: left !important;
+        }
       }
     `;
     if (document.head) {

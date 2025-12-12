@@ -21,6 +21,7 @@ export default function AuthPromptCard() {
   const { signInWithGoogle } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showWhySignIn, setShowWhySignIn] = useState(false);
 
   /**
    * Handles the Sign In with Google action.
@@ -45,6 +46,15 @@ export default function AuthPromptCard() {
           <div style={styles.icon}>🔓</div>
         </div>
         <h2 style={styles.title}>Unlock Advanced Features</h2>
+        <h3 style={styles.subheading}>Developer Sandbox Features</h3>
+        
+        {/* Premium feature list */}
+        <ul style={styles.premiumFeatureList}>
+          <li style={styles.premiumFeatureItem}>• Calendar sync + live routing</li>
+          <li style={styles.premiumFeatureItem}>• Multi-day constraints + packing lists</li>
+          <li style={styles.premiumFeatureItem}>• Brandable API & enterprise controls</li>
+        </ul>
+        
         <p style={styles.description}>
           Sign in with Google to access the full Developer Sandbox with advanced capabilities:
         </p>
@@ -95,16 +105,30 @@ export default function AuthPromptCard() {
           )}
         </button>
 
+        {/* Why sign in? Collapsible explainer */}
+        <div style={styles.whySignInSection}>
+          <button
+            type="button"
+            onClick={() => setShowWhySignIn(!showWhySignIn)}
+            style={styles.whySignInToggle}
+            aria-expanded={showWhySignIn}
+            aria-label="Why sign in?"
+          >
+            <span>Why sign in?</span>
+            <span style={styles.toggleIcon}>{showWhySignIn ? '▼' : '▶'}</span>
+          </button>
+          {showWhySignIn && (
+            <div style={styles.whySignInContent}>
+              <p style={styles.whySignInText}>
+                Unlock multi-day itineraries, save your preferences, and access deeper parameters for testing enterprise-grade travel experiences.
+              </p>
+            </div>
+          )}
+        </div>
+
         <p style={styles.note}>
           Don't worry - signing in is free and takes just a few seconds
         </p>
-
-        {/* Additional feature labels - displayed above sign-in button */}
-        <ul style={styles.additionalFeatures}>
-          <li style={styles.additionalFeatureItem}>• Calendar sync + live routing</li>
-          <li style={styles.additionalFeatureItem}>• Multi-day constraints + packing lists</li>
-          <li style={styles.additionalFeatureItem}>• Brandable API & enterprise controls</li>
-        </ul>
       </div>
     </div>
   );
@@ -117,7 +141,7 @@ const styles: { [key: string]: React.CSSProperties } = {
   },
   card: {
     backgroundColor: '#ffffff',
-    border: '1px solid #e5e7eb', // border equivalent
+    border: '2px solid #667eea', // Premium accent border
     borderRadius: '0.75rem', // rounded-xl equivalent
     padding: '1.5rem', // p-6 equivalent
     boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)', // shadow-sm equivalent
@@ -141,11 +165,33 @@ const styles: { [key: string]: React.CSSProperties } = {
     color: '#111827', // Improved contrast
     lineHeight: '1.3',
   },
+  subheading: {
+    fontSize: '1rem',
+    fontWeight: '600',
+    color: '#667eea',
+    marginBottom: '0.5rem',
+    lineHeight: '1.4',
+  },
   description: {
     fontSize: '0.9375rem',
     color: '#6b7280',
     marginBottom: '0',
     lineHeight: '1.5',
+  },
+  premiumFeatureList: {
+    listStyle: 'none',
+    padding: '0.75rem',
+    margin: '0.5rem 0',
+    textAlign: 'left',
+    backgroundColor: '#f0f4ff',
+    borderRadius: '0.5rem',
+  },
+  premiumFeatureItem: {
+    padding: '0.25rem 0',
+    fontSize: '0.875rem',
+    color: '#4f46e5',
+    lineHeight: '1.6',
+    fontWeight: '500',
   },
   featureList: {
     listStyle: 'none',
@@ -209,17 +255,41 @@ const styles: { [key: string]: React.CSSProperties } = {
     color: '#9ca3af',
     fontStyle: 'normal',
   },
-  additionalFeatures: {
-    listStyle: 'none',
-    padding: 0,
-    margin: '0.5rem 0',
+  whySignInSection: {
+    marginTop: '0.5rem',
+    marginBottom: '0.5rem',
+  },
+  whySignInToggle: {
+    width: '100%',
+    padding: '0.5rem',
+    fontSize: '0.8125rem',
+    fontWeight: '500',
+    backgroundColor: 'transparent',
+    color: '#667eea',
+    border: 'none',
+    borderRadius: '0.375rem',
+    cursor: 'pointer',
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    outline: 'none',
+    transition: 'background-color 0.2s',
+  },
+  toggleIcon: {
+    fontSize: '0.75rem',
+  },
+  whySignInContent: {
+    marginTop: '0.5rem',
+    padding: '0.75rem',
+    backgroundColor: '#f9fafb',
+    borderRadius: '0.5rem',
     textAlign: 'left',
   },
-  additionalFeatureItem: {
-    padding: '0.375rem 0',
-    fontSize: '0.875rem',
+  whySignInText: {
+    fontSize: '0.8125rem',
     color: '#6b7280',
-    lineHeight: '1.6',
+    lineHeight: '1.5',
+    margin: 0,
   },
 };
 

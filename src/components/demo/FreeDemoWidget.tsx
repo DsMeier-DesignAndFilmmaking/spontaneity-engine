@@ -22,6 +22,7 @@ import SettingsModal from './SettingsModal';
 import RecentResults from './RecentResults';
 import SaveShareWidget from './SaveShareWidget';
 import FeedbackWidget from './FeedbackWidget';
+import QuickPromptChips from './QuickPromptChips';
 import type { ContextValues } from './ContextToggles';
 
 /**
@@ -65,6 +66,8 @@ export default function FreeDemoWidget() {
   
   // Settings modal state
   const [showSettings, setShowSettings] = useState(false);
+  // Developer mode toggle (UI only)
+  const [developerMode, setDeveloperMode] = useState(false);
 
   /**
    * Handles preset selection from Settings Modal
@@ -74,6 +77,20 @@ export default function FreeDemoWidget() {
     setVibe(presetText);
     // Close modal after preset selection (optional - user can still keep it open)
     // setShowSettings(false);
+  };
+
+  /**
+   * Handles quick prompt chip click - UI only, just updates input state
+   */
+  const handleQuickChipClick = (text: string, field: 'vibe' | 'time' | 'location') => {
+    // UI-only: Update the corresponding input field
+    if (field === 'vibe') {
+      setVibe(text);
+    } else if (field === 'time') {
+      setTime(text);
+    } else if (field === 'location') {
+      setLocation(text);
+    }
   };
 
   /**
@@ -241,6 +258,12 @@ export default function FreeDemoWidget() {
           />
         )}
 
+        {/* Quick Prompt Chips */}
+        <QuickPromptChips
+          onChipClick={handleQuickChipClick}
+          disabled={loading}
+        />
+
         {/* AI Testing Controls */}
         <div style={styles.controls} id="free-demo-input">
           <div style={styles.inputGroup}>
@@ -308,9 +331,33 @@ export default function FreeDemoWidget() {
         )}
 
         {result && resultId && (
-          <div style={styles.resultBox} id="demo-results">
+          <div style={styles.resultBox} id="demo-results" data-result-panel>
             <h3 style={styles.resultTitle}>Recommendation Result:</h3>
-            <pre style={styles.resultContent}>{result}</pre>
+            <div style={styles.resultScrollContainer}>
+              <pre style={styles.resultContent}>{result}</pre>
+            </div>
+            
+            {/* Developer Mode Toggle (UI only) */}
+            <div style={styles.developerModeSection}>
+              <label style={styles.developerModeLabel}>
+                <input
+                  type="checkbox"
+                  checked={developerMode}
+                  onChange={(e) => setDeveloperMode(e.target.checked)}
+                  style={styles.checkbox}
+                />
+                <span>Developer Mode</span>
+              </label>
+            </div>
+
+            {/* Developer Mode Drawer (UI only, no logic) */}
+            {developerMode && (
+              <div style={styles.developerDrawer} data-developer-drawer>
+                <p style={styles.developerDrawerText}>
+                  Developer mode preview — JSON response, token usage, and model details will appear here in future versions.
+                </p>
+              </div>
+            )}
             
             {/* Save & Share Widget (feature-flagged) */}
             {enhancementsEnabled && (
@@ -469,25 +516,64 @@ const styles: { [key: string]: React.CSSProperties } = {
   resultBox: {
     backgroundColor: '#f9f9f9',
     border: '1px solid #e0e0e0',
-    borderRadius: '8px',
+    borderRadius: '0.75rem',
     padding: '1.5rem',
     marginBottom: '1.5rem',
+    boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)',
   },
   resultTitle: {
     fontSize: '1rem',
     fontWeight: '600',
     marginBottom: '1rem',
-    color: '#333',
+    color: '#111827',
+  },
+  resultScrollContainer: {
+    maxHeight: '400px',
+    overflowY: 'auto',
+    marginBottom: '1rem',
+    borderRadius: '0.5rem',
   },
   resultContent: {
     fontSize: '0.875rem',
     fontFamily: 'monospace',
     backgroundColor: '#ffffff',
     padding: '1rem',
-    borderRadius: '4px',
-    overflow: 'auto',
+    borderRadius: '0.5rem',
     margin: 0,
     whiteSpace: 'pre-wrap',
     wordBreak: 'break-word',
+  },
+  developerModeSection: {
+    marginTop: '1rem',
+    paddingTop: '1rem',
+    borderTop: '1px solid #e5e7eb',
+  },
+  developerModeLabel: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.5rem',
+    fontSize: '0.875rem',
+    fontWeight: '500',
+    color: '#374151',
+    cursor: 'pointer',
+  },
+  checkbox: {
+    width: '1rem',
+    height: '1rem',
+    cursor: 'pointer',
+  },
+  developerDrawer: {
+    marginTop: '1rem',
+    padding: '1rem',
+    backgroundColor: '#f3f4f6',
+    border: '1px solid #e5e7eb',
+    borderRadius: '0.5rem',
+  },
+  developerDrawerText: {
+    fontSize: '0.8125rem',
+    color: '#6b7280',
+    margin: 0,
+    lineHeight: '1.5',
+    fontStyle: 'italic',
   },
 };

@@ -310,10 +310,12 @@ if (typeof document !== 'undefined') {
       button[aria-label="Close settings"]:focus {
         box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.2) !important;
       }
-      button[aria-label="Settings"]:hover {
+      button[aria-label="Settings"]:hover:not(:disabled) {
         background-color: #f5f5f5 !important;
-        border-color: #667eea !important;
         color: #667eea !important;
+      }
+      button[aria-label="Settings"]:active:not(:disabled) {
+        background-color: #eeeeee !important;
       }
       button[aria-label="Settings"]:focus {
         box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.2) !important;

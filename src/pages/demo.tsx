@@ -39,20 +39,6 @@ import DemoTabs from '@/components/demo/DemoTabs';
 export default function DemoPage() {
   const { authStatus, session } = useAuth();
   const [activeTab, setActiveTab] = useState<'free' | 'advanced'>('free');
-  const [isMobile, setIsMobile] = useState(false);
-
-  // Detect mobile viewport
-  useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(typeof window !== 'undefined' && window.innerWidth < 800);
-    };
-    
-    checkMobile();
-    if (typeof window !== 'undefined') {
-      window.addEventListener('resize', checkMobile);
-      return () => window.removeEventListener('resize', checkMobile);
-    }
-  }, []);
 
   // Always render the free demo widget (no authentication required)
   // Conditionally render advanced features based on auth status
@@ -69,32 +55,37 @@ export default function DemoPage() {
         </p>
       </div>
 
-      {/* Mobile Tabs (only visible on mobile) */}
-      {isMobile && (
-        <div style={demoStyles.tabsContainer}>
-          <DemoTabs activeTab={activeTab} onTabChange={setActiveTab} />
-        </div>
-      )}
+      {/* Tabs - visible on both mobile and desktop */}
+      <div style={demoStyles.tabsContainer}>
+        <DemoTabs activeTab={activeTab} onTabChange={setActiveTab} />
+      </div>
 
-      {/* Grid layout: Free Demo and Advanced Features */}
-      <div style={demoStyles.gridContainer} data-grid-container>
-        {/* Left column: Free Demo */}
+      {/* Tab Content Container - only active tab is visible */}
+      <div style={demoStyles.contentContainer} data-content-container>
+        {/* Free Demo Tab Content */}
         <div
-          style={demoStyles.gridColumn}
-          data-grid-column
-          data-mobile-tab-content="free"
-          data-mobile-visible={isMobile ? (activeTab === 'free' ? 'true' : 'false') : 'true'}
+          style={{
+            ...demoStyles.tabContent,
+            ...(activeTab === 'free' ? demoStyles.tabContentActive : demoStyles.tabContentHidden),
+          }}
+          role="tabpanel"
+          id="free-demo-panel"
+          aria-labelledby="tab-free-demo"
+          data-tab-content="free"
         >
           <FreeDemoWidget />
         </div>
 
-
-        {/* Right column: Advanced Features (conditional based on auth status) */}
+        {/* Advanced Features Tab Content (conditional based on auth status) */}
         <div
-          style={demoStyles.gridColumn}
-          data-grid-column
-          data-mobile-tab-content="advanced"
-          data-mobile-visible={isMobile ? (activeTab === 'advanced' ? 'true' : 'false') : 'true'}
+          style={{
+            ...demoStyles.tabContent,
+            ...(activeTab === 'advanced' ? demoStyles.tabContentActive : demoStyles.tabContentHidden),
+          }}
+          role="tabpanel"
+          id="advanced-demo-panel"
+          aria-labelledby="tab-advanced-demo"
+          data-tab-content="advanced"
         >
           {authStatus === 'LOADING' ? (
             // Show nothing while loading
@@ -151,16 +142,21 @@ const demoStyles: { [key: string]: React.CSSProperties } = {
     margin: '0 auto 1.5rem auto',
     padding: '0 1rem',
   },
-  gridContainer: {
-    display: 'grid',
-    gridTemplateColumns: '1fr',
-    gap: '1.5rem',
-    maxWidth: '1280px', // max-w-7xl equivalent
+  contentContainer: {
+    maxWidth: '1280px',
     margin: '0 auto',
     width: '100%',
+    position: 'relative',
   },
-  gridColumn: {
+  tabContent: {
     width: '100%',
+    animation: 'fadeIn 0.3s ease-in',
+  },
+  tabContentActive: {
+    display: 'block',
+  },
+  tabContentHidden: {
+    display: 'none',
   },
 };
 
@@ -171,12 +167,6 @@ if (typeof document !== 'undefined') {
     const style = document.createElement('style');
     style.id = styleId;
     style.textContent = `
-      /* Desktop: 2-column grid */
-      @media (min-width: 768px) {
-        [data-grid-container] {
-          grid-template-columns: repeat(2, 1fr) !important;
-        }
-      }
       /* Card hover elevation */
       [data-demo-card] {
         transition: all 0.2s ease-in-out !important;
@@ -218,17 +208,12 @@ if (typeof document !== 'undefined') {
           text-align: left !important;
         }
       }
-      /* Mobile tab visibility */
-      @media (max-width: 799px) {
-        [data-mobile-tab-content][data-mobile-visible="false"] {
-          display: none !important;
-        }
+      /* Tab content visibility - only active tab is shown */
+      [data-tab-content] {
+        display: none;
       }
-      /* Desktop: always show both */
-      @media (min-width: 800px) {
-        [data-mobile-tab-content] {
-          display: block !important;
-        }
+      [data-tab-content][style*="tabContentActive"] {
+        display: block !important;
       }
       /* Select focus styles */
       select:focus {

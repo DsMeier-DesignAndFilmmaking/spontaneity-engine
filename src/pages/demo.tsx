@@ -88,10 +88,6 @@ export default function DemoPage() {
           <FreeDemoWidget />
         </div>
 
-        {/* Mobile-only "OR" divider */}
-        <div style={demoStyles.mobileDivider} data-mobile-divider>
-          <span style={demoStyles.dividerText}>OR</span>
-        </div>
 
         {/* Right column: Advanced Features (conditional based on auth status) */}
         <div
@@ -166,19 +162,6 @@ const demoStyles: { [key: string]: React.CSSProperties } = {
   gridColumn: {
     width: '100%',
   },
-  mobileDivider: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    margin: '1rem 0',
-  },
-  dividerText: {
-    fontSize: '0.875rem',
-    fontWeight: '500',
-    color: '#9ca3af', // text-gray-400 equivalent
-    textTransform: 'uppercase',
-    letterSpacing: '0.05em',
-  },
 };
 
 // Add responsive styles via CSS
@@ -192,9 +175,6 @@ if (typeof document !== 'undefined') {
       @media (min-width: 768px) {
         [data-grid-container] {
           grid-template-columns: repeat(2, 1fr) !important;
-        }
-        [data-mobile-divider] {
-          display: none !important;
         }
       }
       /* Card hover elevation */

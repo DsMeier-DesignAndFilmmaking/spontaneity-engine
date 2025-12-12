@@ -23,6 +23,7 @@ import RecentResults from './RecentResults';
 import SaveShareWidget from './SaveShareWidget';
 import FeedbackWidget from './FeedbackWidget';
 import QuickPromptChips from './QuickPromptChips';
+import VibeMultiSelect from './VibeMultiSelect';
 import type { ContextValues } from './ContextToggles';
 
 /**
@@ -208,6 +209,9 @@ export default function FreeDemoWidget() {
           <div style={styles.headerContent}>
             <h1 style={styles.title}>Try a spontaneous micro-adventure — no sign in.</h1>
             <p style={styles.subtitle}>
+              Try it instantly
+            </p>
+            <p style={styles.descriptionText}>
               Get instant, personalized recommendations powered by AI
             </p>
           </div>
@@ -270,13 +274,9 @@ export default function FreeDemoWidget() {
             <label style={styles.label} htmlFor="vibe">
               Vibe
             </label>
-            <input
-              id="vibe"
-              type="text"
+            <VibeMultiSelect
               value={vibe}
-              onChange={(e) => setVibe(e.target.value)}
-              placeholder="e.g., adventurous, relaxed, creative"
-              style={styles.input}
+              onChange={setVibe}
               disabled={loading}
             />
           </div>
@@ -285,15 +285,21 @@ export default function FreeDemoWidget() {
             <label style={styles.label} htmlFor="time">
               Time
             </label>
-            <input
+            <select
               id="time"
-              type="text"
               value={time}
               onChange={(e) => setTime(e.target.value)}
-              placeholder="e.g., 2 hours, afternoon, evening"
-              style={styles.input}
+              style={styles.select}
               disabled={loading}
-            />
+            >
+              <option value="">Select time</option>
+              <option value="30 min">30 min</option>
+              <option value="1 hour">1 hour</option>
+              <option value="2 hours">2 hours</option>
+              <option value="3 hours">3 hours</option>
+              <option value="Half day">Half day</option>
+              <option value="Full day">Full day</option>
+            </select>
           </div>
 
           <div style={styles.inputGroup}>
@@ -429,6 +435,13 @@ const styles: { [key: string]: React.CSSProperties } = {
     lineHeight: '1.3',
   },
   subtitle: {
+    fontSize: '1rem',
+    color: '#6b7280',
+    marginBottom: '0.25rem',
+    lineHeight: '1.5',
+    fontWeight: '600',
+  },
+  descriptionText: {
     fontSize: '0.9375rem',
     color: '#6b7280',
     marginBottom: '0',
@@ -484,6 +497,17 @@ const styles: { [key: string]: React.CSSProperties } = {
     borderRadius: '8px',
     outline: 'none',
     transition: 'border-color 0.2s',
+  },
+  select: {
+    padding: '0.75rem',
+    fontSize: '1rem',
+    border: '2px solid #e0e0e0',
+    borderRadius: '8px',
+    outline: 'none',
+    transition: 'border-color 0.2s',
+    backgroundColor: '#ffffff',
+    cursor: 'pointer',
+    minHeight: '2.75rem',
   },
   primaryButton: {
     padding: '0.875rem 2rem',

@@ -12,13 +12,15 @@
  * - If Logged Out: AuthPromptCard (prominent "Sign In with Google" button)
  */
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/stores/auth';
 import FreeDemoWidget from '@/components/demo/FreeDemoWidget';
 import DeveloperSandbox from '@/components/demo/DeveloperSandbox';
 import AuthPromptCard from '@/components/demo/AuthPromptCard';
 import LeadGenCTA from '@/components/demo/LeadGenCTA';
 import ToastContainer from '@/components/demo/ToastContainer';
+import DemoPageNav from '@/components/demo/DemoPageNav';
+import DemoTabs from '@/components/demo/DemoTabs';
 
 /**
  * Demo page component - Low-Friction Demo model with Two-Mode Display.
@@ -36,11 +38,29 @@ import ToastContainer from '@/components/demo/ToastContainer';
  */
 export default function DemoPage() {
   const { authStatus, session } = useAuth();
+  const [activeTab, setActiveTab] = useState<'free' | 'advanced'>('free');
+  const [isMobile, setIsMobile] = useState(false);
+
+  // Detect mobile viewport
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(typeof window !== 'undefined' && window.innerWidth < 800);
+    };
+    
+    checkMobile();
+    if (typeof window !== 'undefined') {
+      window.addEventListener('resize', checkMobile);
+      return () => window.removeEventListener('resize', checkMobile);
+    }
+  }, []);
 
   // Always render the free demo widget (no authentication required)
   // Conditionally render advanced features based on auth status
   return (
     <div style={demoStyles.container}>
+      {/* Top Navigation with Logo */}
+      <DemoPageNav />
+
       {/* Developer Story Header */}
       <div style={demoStyles.header} data-header>
         <h1 style={demoStyles.headerTitle}>Experience the Spontaneity Engine in action.</h1>
@@ -49,10 +69,22 @@ export default function DemoPage() {
         </p>
       </div>
 
+      {/* Mobile Tabs (only visible on mobile) */}
+      {isMobile && (
+        <div style={demoStyles.tabsContainer}>
+          <DemoTabs activeTab={activeTab} onTabChange={setActiveTab} />
+        </div>
+      )}
+
       {/* Grid layout: Free Demo and Advanced Features */}
       <div style={demoStyles.gridContainer} data-grid-container>
-        {/* Left column: Free Demo (always visible) */}
-        <div style={demoStyles.gridColumn} data-grid-column>
+        {/* Left column: Free Demo */}
+        <div
+          style={demoStyles.gridColumn}
+          data-grid-column
+          data-mobile-tab-content="free"
+          data-mobile-visible={isMobile ? (activeTab === 'free' ? 'true' : 'false') : 'true'}
+        >
           <FreeDemoWidget />
         </div>
 
@@ -62,7 +94,12 @@ export default function DemoPage() {
         </div>
 
         {/* Right column: Advanced Features (conditional based on auth status) */}
-        <div style={demoStyles.gridColumn} data-grid-column>
+        <div
+          style={demoStyles.gridColumn}
+          data-grid-column
+          data-mobile-tab-content="advanced"
+          data-mobile-visible={isMobile ? (activeTab === 'advanced' ? 'true' : 'false') : 'true'}
+        >
           {authStatus === 'LOADING' ? (
             // Show nothing while loading
             null
@@ -112,6 +149,11 @@ const demoStyles: { [key: string]: React.CSSProperties } = {
     maxWidth: '700px',
     marginLeft: 'auto',
     marginRight: 'auto',
+  },
+  tabsContainer: {
+    maxWidth: '1280px',
+    margin: '0 auto 1.5rem auto',
+    padding: '0 1rem',
   },
   gridContainer: {
     display: 'grid',
@@ -195,6 +237,26 @@ if (typeof document !== 'undefined') {
         [data-header] {
           text-align: left !important;
         }
+      }
+      /* Mobile tab visibility */
+      @media (max-width: 799px) {
+        [data-mobile-tab-content][data-mobile-visible="false"] {
+          display: none !important;
+        }
+      }
+      /* Desktop: always show both */
+      @media (min-width: 800px) {
+        [data-mobile-tab-content] {
+          display: block !important;
+        }
+      }
+      /* Select focus styles */
+      select:focus {
+        border-color: #667eea !important;
+        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1) !important;
+      }
+      select:hover:not(:disabled) {
+        border-color: #d1d5db !important;
       }
     `;
     if (document.head) {

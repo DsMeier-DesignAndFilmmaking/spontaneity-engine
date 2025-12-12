@@ -23,7 +23,8 @@ import RecentResults from './RecentResults';
 import SaveShareWidget from './SaveShareWidget';
 import FeedbackWidget from './FeedbackWidget';
 import QuickPromptChips from './QuickPromptChips';
-import VibeMultiSelect from './VibeMultiSelect';
+import VibeChipsSelector from './VibeChipsSelector';
+import SelectedVibes from './SelectedVibes';
 import type { ContextValues } from './ContextToggles';
 
 /**
@@ -84,15 +85,52 @@ export default function FreeDemoWidget() {
    * Handles quick prompt chip click - UI only, just updates input state
    */
   const handleQuickChipClick = (text: string, field: 'vibe' | 'time' | 'location') => {
-    // UI-only: Update the corresponding input field
-    if (field === 'vibe') {
-      setVibe(text);
-    } else if (field === 'time') {
+    // UI-only: Update the corresponding input field (for time/location)
+    if (field === 'time') {
       setTime(text);
     } else if (field === 'location') {
       setLocation(text);
     }
+    // Note: vibe presets are handled by handleVibeAppend
   };
+
+  /**
+   * Handles appending vibes from presets - UI only
+   */
+  const handleVibeAppend = (newVibes: string[]) => {
+    // Parse current vibes
+    const currentVibesArray = vibe
+      ? vibe.split(',').map(v => v.trim()).filter(v => v.length > 0)
+      : [];
+    
+    // Append new vibes (avoid duplicates)
+    const combinedVibes = [...currentVibesArray];
+    newVibes.forEach(v => {
+      if (!combinedVibes.includes(v)) {
+        combinedVibes.push(v);
+      }
+    });
+    
+    // Convert back to comma-separated string
+    setVibe(combinedVibes.join(', '));
+  };
+
+  /**
+   * Handles removing a vibe - UI only
+   */
+  const handleVibeRemove = (vibeToRemove: string) => {
+    const currentVibesArray = vibe
+      ? vibe.split(',').map(v => v.trim()).filter(v => v.length > 0)
+      : [];
+    
+    const newVibes = currentVibesArray.filter(v => v !== vibeToRemove);
+    setVibe(newVibes.join(', '));
+  };
+
+  // Parse vibes for display
+  const selectedVibesArray = vibe
+    ? vibe.split(',').map(v => v.trim()).filter(v => v.length > 0)
+    : [];
 
   /**
    * Handles opening settings modal
@@ -265,22 +303,27 @@ export default function FreeDemoWidget() {
         {/* Quick Prompt Chips */}
         <QuickPromptChips
           onChipClick={handleQuickChipClick}
+          onVibeAppend={handleVibeAppend}
+          currentVibes={vibe}
+          disabled={loading}
+        />
+
+        {/* Selected Vibes Display */}
+        <SelectedVibes
+          vibes={selectedVibesArray}
+          onRemove={handleVibeRemove}
+          disabled={loading}
+        />
+
+        {/* Vibe Selector - All Available Vibes */}
+        <VibeChipsSelector
+          value={vibe}
+          onChange={setVibe}
           disabled={loading}
         />
 
         {/* AI Testing Controls */}
         <div style={styles.controls} id="free-demo-input">
-          <div style={styles.inputGroup}>
-            <label style={styles.label} htmlFor="vibe">
-              Vibe
-            </label>
-            <VibeMultiSelect
-              value={vibe}
-              onChange={setVibe}
-              disabled={loading}
-            />
-          </div>
-
           <div style={styles.inputGroup}>
             <label style={styles.label} htmlFor="time">
               Duration

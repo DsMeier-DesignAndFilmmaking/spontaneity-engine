@@ -92,8 +92,13 @@ export default function DemoTabs({ activeTab, onTabChange }: DemoTabsProps) {
         aria-controls="free-demo-panel"
         role="tab"
         tabIndex={activeTab === 'free' ? 0 : -1}
+        aria-label="Try Instantly - No login required, start exploring instantly"
       >
-        Free Demo
+        <span style={styles.tabLabel}>Try Instantly</span>
+        <span style={{
+          ...styles.tabSubtext,
+          ...(activeTab === 'free' ? styles.tabSubtextActive : {}),
+        }}>No login required, start exploring instantly</span>
       </button>
       <button
         type="button"
@@ -107,8 +112,13 @@ export default function DemoTabs({ activeTab, onTabChange }: DemoTabsProps) {
         aria-controls="advanced-demo-panel"
         role="tab"
         tabIndex={activeTab === 'advanced' ? 0 : -1}
+        aria-label="Developer Sandbox - Sign in to access advanced testing features"
       >
-        Advanced Features
+        <span style={styles.tabLabel}>Developer Sandbox</span>
+        <span style={{
+          ...styles.tabSubtext,
+          ...(activeTab === 'advanced' ? styles.tabSubtextActive : {}),
+        }}>Sign in to access advanced testing features</span>
       </button>
     </div>
   );
@@ -139,14 +149,32 @@ const styles: { [key: string]: React.CSSProperties } = {
     outline: 'none',
     minHeight: '44px', // WCAG touch target
     display: 'flex',
+    flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
+    gap: '0.25rem',
+  },
+  tabLabel: {
+    fontSize: '0.9375rem',
+    fontWeight: '600',
+    lineHeight: '1.2',
+  },
+  tabSubtext: {
+    fontSize: '0.75rem',
+    fontWeight: '400',
+    color: '#9ca3af',
+    lineHeight: '1.2',
+    textAlign: 'center',
+    transition: 'color 0.2s ease-in-out',
   },
   tabActive: {
     backgroundColor: '#ffffff',
     color: '#667eea',
     boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)',
+  },
+  tabSubtextActive: {
+    color: '#9ca3af',
   },
 };
 
@@ -176,7 +204,11 @@ if (typeof document !== 'undefined') {
       }
       button[role="tab"][aria-selected="true"]:hover {
         background-color: #ffffff !important;
+        color: #111827 !important;
         box-shadow: 0 2px 4px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06) !important;
+      }
+      button[role="tab"][aria-selected="true"]:hover span[style*="tabSubtext"] {
+        color: #6b7280 !important;
       }
       /* Active tab indicator (subtle underline) */
       button[role="tab"][aria-selected="true"]::after {
@@ -193,9 +225,18 @@ if (typeof document !== 'undefined') {
       /* Mobile adjustments */
       @media (max-width: 640px) {
         button[role="tab"] {
-          font-size: 0.875rem;
           padding: 0.75rem 1rem;
         }
+        button[role="tab"] span[style*="tabLabel"] {
+          font-size: 0.875rem !important;
+        }
+        button[role="tab"] span[style*="tabSubtext"] {
+          font-size: 0.6875rem !important;
+        }
+      }
+      /* Subtext styling */
+      button[role="tab"] span[style*="tabSubtext"] {
+        display: block;
       }
     `;
     if (document.head) {

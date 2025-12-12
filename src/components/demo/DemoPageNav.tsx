@@ -1,39 +1,38 @@
 /**
  * DemoPageNav.tsx
- * Top navigation with logo component.
+ * Top navigation with back home button.
  * 
- * Simple navigation bar with logo linking to home.
+ * Simple navigation bar with back arrow button linking to home.
  */
 
 import React from 'react';
 import Link from 'next/link';
 
 /**
- * DemoPageNav component - Top navigation with logo.
+ * DemoPageNav component - Top navigation with back home button.
  */
 export default function DemoPageNav() {
   return (
     <nav style={styles.nav}>
-      <Link href="https://spontaneity-engine.vercel.app/" style={styles.logoLink}>
+      <Link href="https://spontaneity-engine.vercel.app/" style={styles.backLink} aria-label="Back Home">
         <svg
-          width="32"
-          height="32"
-          viewBox="0 0 32 32"
+          width="20"
+          height="20"
+          viewBox="0 0 24 24"
           fill="none"
           xmlns="http://www.w3.org/2000/svg"
-          style={styles.logo}
-          aria-label="Spontaneity Engine Logo"
+          style={styles.backArrow}
+          aria-hidden="true"
         >
-          {/* Simple minimalist logo - abstract spark/spontaneity symbol */}
-          <circle cx="16" cy="16" r="14" stroke="#667eea" strokeWidth="2" fill="none" />
           <path
-            d="M16 8 L16 16 M16 16 L20 12 M16 16 L12 12 M16 24 L20 20 M16 24 L12 20"
-            stroke="#667eea"
+            d="M19 12H5M5 12L12 19M5 12L12 5"
+            stroke="currentColor"
             strokeWidth="2"
             strokeLinecap="round"
-            fill="none"
+            strokeLinejoin="round"
           />
         </svg>
+        <span style={styles.backText}>Back Home</span>
       </Link>
     </nav>
   );
@@ -43,18 +42,26 @@ const styles: { [key: string]: React.CSSProperties } = {
   nav: {
     padding: '0.75rem 0 1rem 0',
   },
-  logoLink: {
-    display: 'inline-block',
+  backLink: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '0.5rem',
     textDecoration: 'none',
-    padding: '0.25rem',
+    padding: '0.5rem 0.75rem',
     borderRadius: '0.375rem',
-    transition: 'opacity 0.2s',
-    lineHeight: 0, // Remove inline spacing
+    transition: 'all 0.2s ease',
+    color: '#374151',
+    fontSize: '0.9375rem',
+    fontWeight: '500',
   },
-  logo: {
+  backArrow: {
     display: 'block',
-    width: '30px',
-    height: '30px',
+    width: '20px',
+    height: '20px',
+    flexShrink: 0,
+  },
+  backText: {
+    lineHeight: '1.5',
   },
 };
 
@@ -66,7 +73,12 @@ if (typeof document !== 'undefined') {
     style.id = styleId;
     style.textContent = `
       a[href*="spontaneity-engine"]:hover {
-        opacity: 0.8;
+        background-color: #f3f4f6;
+        color: #111827;
+      }
+      a[href*="spontaneity-engine"]:focus {
+        outline: 2px solid #667eea;
+        outline-offset: 2px;
       }
     `;
     if (document.head) {

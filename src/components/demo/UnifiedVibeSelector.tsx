@@ -6,7 +6,7 @@
  * Maintains all existing logic - only presentation changes.
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 
 export interface UnifiedVibeSelectorProps {
   value: string; // Current vibe value as comma-separated string
@@ -53,21 +53,22 @@ export default function UnifiedVibeSelector({
   onLocationChange,
   disabled = false,
 }: UnifiedVibeSelectorProps) {
-  const [showCustomVibes, setShowCustomVibes] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const dropdownRef = React.useRef<HTMLDivElement>(null);
 
-  // Detect mobile viewport
+  // Close dropdown on click outside
   useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(typeof window !== 'undefined' && window.innerWidth < 640);
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsDropdownOpen(false);
+      }
     };
-    
-    checkMobile();
-    if (typeof window !== 'undefined') {
-      window.addEventListener('resize', checkMobile);
-      return () => window.removeEventListener('resize', checkMobile);
+
+    if (isDropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
     }
-  }, []);
+  }, [isDropdownOpen]);
 
   // Parse current value into array
   const selectedVibes = value
@@ -113,12 +114,6 @@ export default function UnifiedVibeSelector({
     onChange(newSelected.join(', '));
   };
 
-  // Remove vibe from summary
-  const removeVibe = (vibe: string) => {
-    if (disabled) return;
-    const newSelected = selectedVibes.filter(v => v !== vibe);
-    onChange(newSelected.join(', '));
-  };
 
   return (
     <div style={styles.container}>
@@ -149,78 +144,105 @@ export default function UnifiedVibeSelector({
         </div>
       </div>
 
-      {/* Selected Vibes Summary */}
-      {selectedVibes.length > 0 && (
-        <div style={styles.selectedSection}>
-          <div style={styles.selectedHeader}>
-            <label style={styles.selectedLabel}>
-              Selected Vibes ({selectedVibes.length})
-            </label>
-          </div>
-          <div style={styles.selectedChips} data-selected-chips>
-            {selectedVibes.map((vibe, index) => (
-              <div key={index} style={styles.selectedChip}>
-                <span style={styles.selectedChipText}>{vibe}</span>
-                {!disabled && (
+      {/* Select Vibes Dropdown */}
+      <div style={styles.dropdownSection}>
+        <label style={styles.sectionLabel} htmlFor="vibe-selector">
+          Select Vibes
+        </label>
+        <div style={styles.dropdownContainer} ref={dropdownRef}>
+          <button
+            type="button"
+            id="vibe-selector"
+            onClick={() => !disabled && setIsDropdownOpen(!isDropdownOpen)}
+            disabled={disabled}
+            style={{
+              ...styles.dropdownButton,
+              ...(isDropdownOpen ? styles.dropdownButtonOpen : {}),
+              ...(disabled ? styles.buttonDisabled : {}),
+            }}
+            aria-haspopup="listbox"
+            aria-expanded={isDropdownOpen}
+            aria-label="Select vibes"
+          >
+            <span style={{
+              ...styles.dropdownValue,
+              color: selectedVibes.length > 0 ? '#111827' : '#9ca3af',
+            }}>
+              {selectedVibes.length === 0
+                ? 'Select vibes...'
+                : selectedVibes.length === 1
+                ? selectedVibes[0]
+                : `${selectedVibes.length} selected`}
+            </span>
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+              style={{
+                ...styles.dropdownArrow,
+                transform: isDropdownOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+              }}
+              aria-hidden="true"
+            >
+              <path
+                d="M6 9L12 15L18 9"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </button>
+
+          {/* Dropdown Menu */}
+          {isDropdownOpen && (
+            <div style={styles.dropdownMenu} role="listbox" aria-label="Vibe options" data-dropdown-menu>
+              {VIBE_OPTIONS.map((vibe) => {
+                const isSelected = selectedVibes.includes(vibe);
+                return (
                   <button
+                    key={vibe}
                     type="button"
-                    onClick={() => removeVibe(vibe)}
-                    style={styles.selectedChipRemove}
-                    aria-label={`Remove ${vibe}`}
+                    role="option"
+                    aria-selected={isSelected}
+                    onClick={() => toggleVibe(vibe)}
+                    disabled={disabled}
+                    style={{
+                      ...styles.dropdownOption,
+                      ...(isSelected ? styles.dropdownOptionSelected : {}),
+                      ...(disabled ? styles.buttonDisabled : {}),
+                    }}
                   >
-                    ×
+                    <span style={styles.checkboxContainer}>
+                      {isSelected && (
+                        <svg
+                          width="16"
+                          height="16"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          xmlns="http://www.w3.org/2000/svg"
+                          style={styles.checkmark}
+                          aria-hidden="true"
+                        >
+                          <path
+                            d="M20 6L9 17L4 12"
+                            stroke="currentColor"
+                            strokeWidth="2.5"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                        </svg>
+                      )}
+                      {!isSelected && <span style={styles.checkboxEmpty} />}
+                    </span>
+                    <span style={styles.dropdownOptionLabel}>{vibe}</span>
                   </button>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Customize Vibes Toggle (Mobile only) */}
-      {isMobile && (
-        <button
-          type="button"
-          onClick={() => setShowCustomVibes(!showCustomVibes)}
-          style={styles.customizeToggle}
-          disabled={disabled}
-          aria-expanded={showCustomVibes}
-        >
-          <span>{showCustomVibes ? 'Hide' : 'Customize'} Vibes</span>
-          <span style={styles.toggleIcon}>{showCustomVibes ? '▲' : '▼'}</span>
-        </button>
-      )}
-
-      {/* Vibe Chips Selector */}
-      <div
-        style={{
-          ...styles.vibesSection,
-          ...(isMobile && !showCustomVibes ? styles.vibesSectionHidden : {}),
-        }}
-        data-vibes-section
-      >
-        <label style={styles.sectionLabel}>Select Vibes</label>
-        <div style={styles.vibesGrid}>
-          {VIBE_OPTIONS.map((vibe) => {
-            const isSelected = selectedVibes.includes(vibe);
-            return (
-              <button
-                key={vibe}
-                type="button"
-                onClick={() => toggleVibe(vibe)}
-                disabled={disabled}
-                style={{
-                  ...styles.vibeChip,
-                  ...(isSelected ? styles.vibeChipSelected : styles.vibeChipUnselected),
-                  ...(disabled ? styles.buttonDisabled : {}),
-                }}
-                aria-pressed={isSelected}
-                aria-label={`Toggle ${vibe}`}
-              >
-                {vibe}
-              </button>
-            );
-          })}
+                );
+              })}
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -269,120 +291,108 @@ const styles: { [key: string]: React.CSSProperties } = {
     borderColor: '#4338ca',
     boxShadow: '0 2px 4px rgba(67, 56, 202, 0.3)',
   },
-  selectedSection: {
-    marginBottom: '1.25rem',
-    padding: '1rem',
-    backgroundColor: '#f0f4ff',
+  dropdownSection: {
+    marginBottom: '0',
+    position: 'relative',
+  },
+  dropdownContainer: {
+    position: 'relative',
+    width: '100%',
+  },
+  dropdownButton: {
+    width: '100%',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: '0.75rem 1rem',
+    fontSize: '1rem',
+    fontWeight: '400',
+    color: '#374151',
+    backgroundColor: '#ffffff',
+    border: '2px solid #d1d5db',
     borderRadius: '0.5rem',
-    border: '1px solid #e0e7ff',
+    cursor: 'pointer',
+    transition: 'all 0.2s',
+    outline: 'none',
+    minHeight: '44px',
+    textAlign: 'left',
   },
-  selectedHeader: {
-    marginBottom: '0.75rem',
+  dropdownButtonOpen: {
+    borderColor: '#667eea',
+    boxShadow: '0 0 0 3px rgba(102, 126, 234, 0.1)',
   },
-  selectedLabel: {
-    fontSize: '0.875rem',
-    fontWeight: '600',
+  dropdownValue: {
+    flex: 1,
+  },
+  dropdownArrow: {
+    width: '20px',
+    height: '20px',
+    flexShrink: 0,
+    transition: 'transform 0.2s',
+    color: '#6b7280',
+  },
+  dropdownMenu: {
+    position: 'absolute',
+    top: '100%',
+    left: 0,
+    right: 0,
+    marginTop: '0.25rem',
+    backgroundColor: '#ffffff',
+    border: '1px solid #e5e7eb',
+    borderRadius: '0.5rem',
+    boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+    maxHeight: '300px',
+    overflowY: 'auto',
+    zIndex: 1000,
+    display: 'flex',
+    flexDirection: 'column',
+  },
+  dropdownOption: {
+    width: '100%',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.75rem',
+    padding: '0.75rem 1rem',
+    fontSize: '0.9375rem',
+    fontWeight: '400',
+    color: '#374151',
+    backgroundColor: 'transparent',
+    border: 'none',
+    borderBottom: '1px solid #f3f4f6',
+    cursor: 'pointer',
+    transition: 'background-color 0.2s',
+    outline: 'none',
+    minHeight: '44px',
+    textAlign: 'left',
+  },
+  dropdownOptionSelected: {
+    backgroundColor: '#f0f4ff',
     color: '#4338ca',
   },
-  selectedChips: {
-    display: 'flex',
-    flexWrap: 'wrap',
-    gap: '0.5rem',
-    overflowX: 'auto',
-    paddingBottom: '0.25rem',
-  },
-  selectedChip: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: '0.375rem',
-    padding: '0.5rem 0.75rem',
-    backgroundColor: '#667eea',
-    color: '#ffffff',
-    borderRadius: '9999px',
-    fontSize: '0.875rem',
-    fontWeight: '500',
+  checkboxContainer: {
+    width: '20px',
+    height: '20px',
     flexShrink: 0,
-    minHeight: '44px',
-  },
-  selectedChipText: {
-    whiteSpace: 'nowrap',
-    maxWidth: '150px',
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-  },
-  selectedChipRemove: {
-    background: 'none',
-    border: 'none',
-    color: '#ffffff',
-    fontSize: '1.25rem',
-    lineHeight: '1',
-    cursor: 'pointer',
-    padding: '0.125rem',
-    marginLeft: '0.125rem',
-    outline: 'none',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    minWidth: '24px',
-    minHeight: '24px',
-    borderRadius: '50%',
-    transition: 'background-color 0.2s',
-  },
-  customizeToggle: {
-    width: '100%',
-    padding: '0.75rem 1rem',
-    fontSize: '0.9375rem',
-    fontWeight: '600',
-    backgroundColor: '#f3f4f6',
-    color: '#374151',
-    border: '1px solid #e5e7eb',
-    borderRadius: '0.5rem',
-    cursor: 'pointer',
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: '1rem',
-    outline: 'none',
-    minHeight: '44px',
-    transition: 'all 0.2s',
-  },
-  toggleIcon: {
-    fontSize: '0.75rem',
-    color: '#6b7280',
-  },
-  vibesSection: {
-    marginBottom: '0',
-  },
-  vibesSectionHidden: {
-    display: 'none',
-  },
-  vibesGrid: {
-    display: 'flex',
-    flexWrap: 'wrap',
-    gap: '0.5rem',
-  },
-  vibeChip: {
-    padding: '0.625rem 1rem',
-    fontSize: '0.875rem',
-    fontWeight: '500',
-    borderRadius: '9999px',
-    border: '2px solid',
-    cursor: 'pointer',
-    transition: 'all 0.2s',
-    outline: 'none',
-    minHeight: '44px',
-    whiteSpace: 'nowrap',
-    flexShrink: 0,
-  },
-  vibeChipUnselected: {
+    border: '2px solid #d1d5db',
+    borderRadius: '0.25rem',
     backgroundColor: '#ffffff',
-    color: '#374151',
-    borderColor: '#d1d5db',
+    transition: 'all 0.2s',
   },
-  vibeChipSelected: {
-    backgroundColor: '#667eea',
-    color: '#ffffff',
-    borderColor: '#667eea',
+  checkmark: {
+    width: '16px',
+    height: '16px',
+    color: '#667eea',
+    strokeWidth: '2.5',
+  },
+  checkboxEmpty: {
+    width: '16px',
+    height: '16px',
+  },
+  dropdownOptionLabel: {
+    flex: 1,
   },
   buttonDisabled: {
     opacity: 0.6,
@@ -407,23 +417,20 @@ if (typeof document !== 'undefined') {
         background-color: #3730a3 !important;
         border-color: #3730a3 !important;
       }
-      /* Vibe chip hover */
-      button[aria-label^="Toggle"]:not(:disabled):not([aria-pressed="true"]):hover {
-        background-color: #f3f4f6 !important;
+      /* Dropdown button hover */
+      button[aria-label="Select vibes"]:not(:disabled):hover {
         border-color: #9ca3af !important;
-        transform: translateY(-1px);
       }
-      button[aria-label^="Toggle"][aria-pressed="true"]:not(:disabled):hover {
-        background-color: #5568d3 !important;
-        border-color: #5568d3 !important;
+      button[aria-label="Select vibes"]:not(:disabled):focus {
+        border-color: #667eea !important;
+        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1) !important;
       }
-      /* Selected chip remove hover */
-      button[aria-label^="Remove"]:hover {
-        background-color: rgba(255, 255, 255, 0.2) !important;
+      /* Dropdown option hover */
+      button[role="option"]:not(:disabled):hover {
+        background-color: #f3f4f6 !important;
       }
-      /* Customize toggle hover */
-      button[aria-expanded]:hover:not(:disabled) {
-        background-color: #e5e7eb !important;
+      button[role="option"][aria-selected="true"]:not(:disabled):hover {
+        background-color: #e0e7ff !important;
       }
       /* Focus states */
       button:focus {
@@ -433,35 +440,28 @@ if (typeof document !== 'undefined') {
       button:active:not(:disabled) {
         transform: translateY(0);
       }
-      /* Mobile horizontal scroll */
+      /* Mobile horizontal scroll for presets */
       @media (max-width: 639px) {
-        [data-presets-row],
-        [data-selected-chips] {
+        [data-presets-row] {
           flex-wrap: nowrap !important;
           overflow-x: auto !important;
           -webkit-overflow-scrolling: touch;
         }
       }
-      /* Desktop: always show vibe chips */
-      @media (min-width: 640px) {
-        [data-vibes-section] {
-          display: block !important;
-        }
+      /* Dropdown scrollbar styling */
+      [data-dropdown-menu]::-webkit-scrollbar {
+        width: 8px;
       }
-      /* Hide scrollbar but keep functionality */
-      [data-presets-row]::-webkit-scrollbar,
-      [data-selected-chips]::-webkit-scrollbar {
-        height: 4px;
-      }
-      [data-presets-row]::-webkit-scrollbar-track,
-      [data-selected-chips]::-webkit-scrollbar-track {
+      [data-dropdown-menu]::-webkit-scrollbar-track {
         background: #f3f4f6;
-        border-radius: 2px;
+        border-radius: 4px;
       }
-      [data-presets-row]::-webkit-scrollbar-thumb,
-      [data-selected-chips]::-webkit-scrollbar-thumb {
+      [data-dropdown-menu]::-webkit-scrollbar-thumb {
         background: #d1d5db;
-        border-radius: 2px;
+        border-radius: 4px;
+      }
+      [data-dropdown-menu]::-webkit-scrollbar-thumb:hover {
+        background: #9ca3af;
       }
     `;
     if (document.head) {

@@ -472,15 +472,24 @@ const styles: { [key: string]: React.CSSProperties } = {
     transition: 'border-color 0.2s',
   },
   select: {
-    padding: '0.75rem',
+    padding: '0.75rem 1rem',
     fontSize: '1rem',
+    fontWeight: '400',
     border: `2px solid ${colors.border}`,
-    borderRadius: '8px',
+    borderRadius: '0.5rem',
     outline: 'none',
-    transition: 'border-color 0.2s',
+    transition: 'all 0.2s',
     backgroundColor: colors.bgPrimary,
+    color: colors.textPrimary,
     cursor: 'pointer',
-    minHeight: '2.75rem',
+    minHeight: '44px',
+    width: '100%',
+    appearance: 'none',
+    backgroundImage: `url("data:image/svg+xml,%3Csvg width='20' height='20' viewBox='0 0 24 24' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M6 9L12 15L18 9' stroke='%236b7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`,
+    backgroundRepeat: 'no-repeat',
+    backgroundPosition: 'right 1rem center',
+    backgroundSize: '20px 20px',
+    paddingRight: '3rem',
   },
   primaryButton: {
     padding: '0.875rem 2rem',
@@ -574,3 +583,30 @@ const styles: { [key: string]: React.CSSProperties } = {
     fontStyle: 'italic',
   },
 };
+
+// Add Duration select hover and focus styles to match Vibe selector
+if (typeof document !== 'undefined') {
+  const styleId = 'free-demo-widget-select-styles';
+  if (!document.getElementById(styleId)) {
+    const style = document.createElement('style');
+    style.id = styleId;
+    style.textContent = `
+      /* Duration select hover and focus to match Vibe selector */
+      #time:hover:not(:disabled) {
+        border-color: ${colors.textMuted} !important;
+      }
+      #time:focus {
+        border-color: ${colors.primary} !important;
+        box-shadow: 0 0 0 3px rgba(15, 82, 186, 0.1) !important;
+      }
+      /* Ensure select dropdown arrow color matches on hover/focus */
+      #time:hover:not(:disabled),
+      #time:focus {
+        background-image: url("data:image/svg+xml,%3Csvg width='20' height='20' viewBox='0 0 24 24' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M6 9L12 15L18 9' stroke='%230F52BA' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") !important;
+      }
+    `;
+    if (document.head) {
+      document.head.appendChild(style);
+    }
+  }
+}

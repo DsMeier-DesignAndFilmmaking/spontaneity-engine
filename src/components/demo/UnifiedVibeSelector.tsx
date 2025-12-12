@@ -276,9 +276,9 @@ const styles: { [key: string]: React.CSSProperties } = {
     padding: '0.75rem 1.25rem',
     fontSize: '0.9375rem',
     fontWeight: '600',
-    backgroundColor: '#667eea',
-    color: '#ffffff',
-    border: '2px solid #667eea',
+    backgroundColor: colors.bgPrimary,
+    color: colors.primary,
+    border: `1px solid ${colors.primary}`,
     borderRadius: '9999px',
     cursor: 'pointer',
     transition: 'all 0.2s',
@@ -288,9 +288,10 @@ const styles: { [key: string]: React.CSSProperties } = {
     flexShrink: 0,
   },
   presetButtonActive: {
-    backgroundColor: '#4338ca',
-    borderColor: '#4338ca',
-    boxShadow: '0 2px 4px rgba(67, 56, 202, 0.3)',
+    backgroundColor: colors.bgPrimary,
+    borderColor: colors.primary,
+    color: colors.primary,
+    boxShadow: `0 0 0 2px ${colors.primary}20`,
   },
   dropdownSection: {
     marginBottom: '0',
@@ -410,13 +411,15 @@ if (typeof document !== 'undefined') {
     style.textContent = `
       /* Preset button hover */
       button[aria-label^="Quick action"]:not(:disabled):not([aria-pressed="true"]):hover {
-        background-color: ${colors.hover} !important;
+        background-color: ${colors.bgAccent} !important;
         border-color: ${colors.hover} !important;
+        color: ${colors.hover} !important;
         transform: translateY(-1px);
       }
       button[aria-label^="Quick action"][aria-pressed="true"]:not(:disabled):hover {
-        background-color: ${colors.hover} !important;
-        border-color: ${colors.hover} !important;
+        background-color: ${colors.bgAccent} !important;
+        border-color: ${colors.primary} !important;
+        color: ${colors.primary} !important;
       }
       /* Dropdown button hover */
       button[aria-label="Select vibes"]:not(:disabled):hover {

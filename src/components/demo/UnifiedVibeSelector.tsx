@@ -7,6 +7,7 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
+import colors from '@/lib/design/colors';
 
 export interface UnifiedVibeSelectorProps {
   value: string; // Current vibe value as comma-separated string
@@ -166,8 +167,8 @@ export default function UnifiedVibeSelector({
           >
             <span style={{
               ...styles.dropdownValue,
-              color: selectedVibes.length > 0 ? '#111827' : '#9ca3af',
-            }}>
+              color: selectedVibes.length > 0 ? colors.textPrimary : colors.textMuted,
+            } as React.CSSProperties}>
               {selectedVibes.length === 0
                 ? 'Select vibes...'
                 : selectedVibes.length === 1
@@ -258,7 +259,7 @@ const styles: { [key: string]: React.CSSProperties } = {
     display: 'block',
     fontSize: '0.875rem',
     fontWeight: '600',
-    color: '#374151',
+    color: colors.textPrimary,
     marginBottom: '0.75rem',
   },
   presetsSection: {
@@ -307,9 +308,9 @@ const styles: { [key: string]: React.CSSProperties } = {
     padding: '0.75rem 1rem',
     fontSize: '1rem',
     fontWeight: '400',
-    color: '#374151',
-    backgroundColor: '#ffffff',
-    border: '2px solid #d1d5db',
+    color: colors.textPrimary,
+    backgroundColor: colors.bgPrimary,
+    border: `2px solid ${colors.border}`,
     borderRadius: '0.5rem',
     cursor: 'pointer',
     transition: 'all 0.2s',
@@ -318,8 +319,8 @@ const styles: { [key: string]: React.CSSProperties } = {
     textAlign: 'left',
   },
   dropdownButtonOpen: {
-    borderColor: '#667eea',
-    boxShadow: '0 0 0 3px rgba(102, 126, 234, 0.1)',
+    borderColor: colors.primary,
+    boxShadow: `0 0 0 3px rgba(15, 82, 186, 0.1)`,
   },
   dropdownValue: {
     flex: 1,
@@ -329,7 +330,7 @@ const styles: { [key: string]: React.CSSProperties } = {
     height: '20px',
     flexShrink: 0,
     transition: 'transform 0.2s',
-    color: '#6b7280',
+    color: colors.textMuted,
   },
   dropdownMenu: {
     position: 'absolute',
@@ -337,8 +338,8 @@ const styles: { [key: string]: React.CSSProperties } = {
     left: 0,
     right: 0,
     marginTop: '0.25rem',
-    backgroundColor: '#ffffff',
-    border: '1px solid #e5e7eb',
+    backgroundColor: colors.bgPrimary,
+    border: `1px solid ${colors.border}`,
     borderRadius: '0.5rem',
     boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
     maxHeight: '300px',
@@ -355,10 +356,10 @@ const styles: { [key: string]: React.CSSProperties } = {
     padding: '0.75rem 1rem',
     fontSize: '0.9375rem',
     fontWeight: '400',
-    color: '#374151',
+    color: colors.textPrimary,
     backgroundColor: 'transparent',
     border: 'none',
-    borderBottom: '1px solid #f3f4f6',
+    borderBottom: `1px solid ${colors.bgHover}`,
     cursor: 'pointer',
     transition: 'background-color 0.2s',
     outline: 'none',
@@ -366,8 +367,8 @@ const styles: { [key: string]: React.CSSProperties } = {
     textAlign: 'left',
   },
   dropdownOptionSelected: {
-    backgroundColor: '#f0f4ff',
-    color: '#4338ca',
+    backgroundColor: colors.bgAccent,
+    color: colors.primary,
   },
   checkboxContainer: {
     width: '20px',
@@ -376,15 +377,15 @@ const styles: { [key: string]: React.CSSProperties } = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    border: '2px solid #d1d5db',
+    border: `2px solid ${colors.border}`,
     borderRadius: '0.25rem',
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.bgPrimary,
     transition: 'all 0.2s',
   },
   checkmark: {
     width: '16px',
     height: '16px',
-    color: '#667eea',
+    color: colors.focus,
     strokeWidth: '2.5',
   },
   checkboxEmpty: {
@@ -409,32 +410,32 @@ if (typeof document !== 'undefined') {
     style.textContent = `
       /* Preset button hover */
       button[aria-label^="Quick action"]:not(:disabled):not([aria-pressed="true"]):hover {
-        background-color: #5568d3 !important;
-        border-color: #5568d3 !important;
+        background-color: ${colors.hover} !important;
+        border-color: ${colors.hover} !important;
         transform: translateY(-1px);
       }
       button[aria-label^="Quick action"][aria-pressed="true"]:not(:disabled):hover {
-        background-color: #3730a3 !important;
-        border-color: #3730a3 !important;
+        background-color: ${colors.hover} !important;
+        border-color: ${colors.hover} !important;
       }
       /* Dropdown button hover */
       button[aria-label="Select vibes"]:not(:disabled):hover {
-        border-color: #9ca3af !important;
+        border-color: ${colors.textMuted} !important;
       }
       button[aria-label="Select vibes"]:not(:disabled):focus {
-        border-color: #667eea !important;
-        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1) !important;
+        border-color: ${colors.primary} !important;
+        box-shadow: 0 0 0 3px rgba(15, 82, 186, 0.1) !important;
       }
       /* Dropdown option hover */
       button[role="option"]:not(:disabled):hover {
-        background-color: #f3f4f6 !important;
+        background-color: ${colors.bgHover} !important;
       }
       button[role="option"][aria-selected="true"]:not(:disabled):hover {
-        background-color: #e0e7ff !important;
+        background-color: ${colors.bgAccent} !important;
       }
       /* Focus states */
       button:focus {
-        outline: 2px solid #667eea;
+        outline: 2px solid ${colors.primary};
         outline-offset: 2px;
       }
       button:active:not(:disabled) {
@@ -453,15 +454,15 @@ if (typeof document !== 'undefined') {
         width: 8px;
       }
       [data-dropdown-menu]::-webkit-scrollbar-track {
-        background: #f3f4f6;
+        background: ${colors.bgHover};
         border-radius: 4px;
       }
       [data-dropdown-menu]::-webkit-scrollbar-thumb {
-        background: #d1d5db;
+        background: ${colors.border};
         border-radius: 4px;
       }
       [data-dropdown-menu]::-webkit-scrollbar-thumb:hover {
-        background: #9ca3af;
+        background: ${colors.textMuted};
       }
     `;
     if (document.head) {

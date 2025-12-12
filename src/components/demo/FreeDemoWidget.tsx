@@ -18,6 +18,7 @@
 import React, { useState, useEffect } from 'react';
 import { isFeatureEnabled, FEATURE_FLAGS } from '@/lib/utils/featureFlags';
 import { trackEvent } from '@/lib/analytics/trackEvent';
+import colors from '@/lib/design/colors';
 import SettingsModal from './SettingsModal';
 import RecentResults from './RecentResults';
 import SaveShareWidget from './SaveShareWidget';
@@ -379,8 +380,8 @@ const styles: { [key: string]: React.CSSProperties } = {
     position: 'relative',
   },
   card: {
-    backgroundColor: '#ffffff',
-    border: '1px solid #e5e7eb',
+    backgroundColor: colors.bgPrimary,
+    border: `1px solid ${colors.border}`,
     borderRadius: '0.75rem',
     padding: '1.5rem',
     boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
@@ -400,22 +401,22 @@ const styles: { [key: string]: React.CSSProperties } = {
     flex: 1,
   },
   title: {
-    fontSize: '1.5rem', // Improved typography hierarchy
+    fontSize: '1.5rem',
     fontWeight: '700',
     marginBottom: '0.5rem',
-    color: '#111827', // Improved contrast
+    color: colors.textPrimary,
     lineHeight: '1.3',
   },
   subtitle: {
     fontSize: '1rem',
-    color: '#6b7280',
+    color: colors.textMuted,
     marginBottom: '0.25rem',
     lineHeight: '1.5',
     fontWeight: '600',
   },
   descriptionText: {
     fontSize: '0.9375rem',
-    color: '#6b7280',
+    color: colors.textMuted,
     marginBottom: '0',
     lineHeight: '1.5',
   },
@@ -432,7 +433,7 @@ const styles: { [key: string]: React.CSSProperties } = {
     justifyContent: 'center',
     transition: 'background-color 0.2s ease, color 0.2s ease',
     outline: 'none',
-    color: '#666',
+    color: colors.textMuted,
     flexShrink: 0,
     marginLeft: '1rem',
     marginTop: '0.25rem',
@@ -460,12 +461,12 @@ const styles: { [key: string]: React.CSSProperties } = {
   label: {
     fontSize: '0.875rem',
     fontWeight: '600',
-    color: '#333',
+    color: colors.textPrimary,
   },
   input: {
     padding: '0.75rem',
     fontSize: '1rem',
-    border: '2px solid #e0e0e0',
+    border: `2px solid ${colors.border}`,
     borderRadius: '8px',
     outline: 'none',
     transition: 'border-color 0.2s',
@@ -473,11 +474,11 @@ const styles: { [key: string]: React.CSSProperties } = {
   select: {
     padding: '0.75rem',
     fontSize: '1rem',
-    border: '2px solid #e0e0e0',
+    border: `2px solid ${colors.border}`,
     borderRadius: '8px',
     outline: 'none',
     transition: 'border-color 0.2s',
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.bgPrimary,
     cursor: 'pointer',
     minHeight: '2.75rem',
   },
@@ -485,8 +486,8 @@ const styles: { [key: string]: React.CSSProperties } = {
     padding: '0.875rem 2rem',
     fontSize: '1rem',
     fontWeight: '600',
-    backgroundColor: '#667eea',
-    color: '#ffffff',
+    backgroundColor: colors.primary,
+    color: colors.textInverse,
     border: 'none',
     borderRadius: '8px',
     cursor: 'pointer',
@@ -505,13 +506,13 @@ const styles: { [key: string]: React.CSSProperties } = {
     marginBottom: '1.5rem',
   },
   errorText: {
-    color: '#c33',
+    color: colors.error,
     margin: 0,
     fontSize: '0.875rem',
   },
   resultBox: {
-    backgroundColor: '#f9f9f9',
-    border: '1px solid #e0e0e0',
+    backgroundColor: colors.bgBase,
+    border: `1px solid ${colors.border}`,
     borderRadius: '0.75rem',
     padding: '1.5rem',
     marginBottom: '1.5rem',
@@ -561,13 +562,13 @@ const styles: { [key: string]: React.CSSProperties } = {
   developerDrawer: {
     marginTop: '1rem',
     padding: '1rem',
-    backgroundColor: '#f3f4f6',
-    border: '1px solid #e5e7eb',
+    backgroundColor: colors.bgHover,
+    border: `1px solid ${colors.border}`,
     borderRadius: '0.5rem',
   },
   developerDrawerText: {
     fontSize: '0.8125rem',
-    color: '#6b7280',
+    color: colors.textMuted,
     margin: 0,
     lineHeight: '1.5',
     fontStyle: 'italic',

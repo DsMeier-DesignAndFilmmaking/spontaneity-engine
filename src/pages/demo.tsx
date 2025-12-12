@@ -14,6 +14,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/stores/auth';
+import colors from '@/lib/design/colors';
 import FreeDemoWidget from '@/components/demo/FreeDemoWidget';
 import DeveloperSandbox from '@/components/demo/DeveloperSandbox';
 import AuthPromptCard from '@/components/demo/AuthPromptCard';
@@ -79,7 +80,7 @@ export default function DemoPage() {
           <FreeDemoWidget />
         </div>
 
-        {/* Advanced Features Tab Content (conditional based on auth status) */}
+        {/* Advanced Features Tab Content - Show DeveloperSandbox when tab is active */}
         <div
           style={{
             ...demoStyles.tabContent,
@@ -95,12 +96,10 @@ export default function DemoPage() {
           {authStatus === 'LOADING' ? (
             // Show nothing while loading
             null
-          ) : authStatus === 'LOGGED_IN' && session ? (
-            // Logged in: Show advanced DeveloperSandbox
-            <DeveloperSandbox />
           ) : (
-            // Logged out: Show sign-in prompt to unlock advanced features
-            <AuthPromptCard />
+            // Always show DeveloperSandbox when this tab is active (for local dev and production)
+            // The component itself handles auth-dependent features internally
+            <DeveloperSandbox />
           )}
         </div>
       </div>
@@ -117,7 +116,7 @@ export default function DemoPage() {
 const demoStyles: { [key: string]: React.CSSProperties } = {
   container: {
     minHeight: '100vh',
-    backgroundColor: '#f5f5f5',
+    backgroundColor: colors.bgBase,
     padding: '1rem 1rem 2.5rem 1rem',
   },
   topSection: {
@@ -137,13 +136,13 @@ const demoStyles: { [key: string]: React.CSSProperties } = {
   headerTitle: {
     fontSize: '2rem',
     fontWeight: '700',
-    color: '#111827',
+    color: colors.textPrimary,
     marginBottom: '1rem',
     lineHeight: '1.2',
   },
   headerSubtext: {
     fontSize: '1.125rem',
-    color: '#6b7280',
+    color: colors.textMuted,
     lineHeight: '1.6',
     margin: 0,
     maxWidth: '700px',
@@ -255,11 +254,11 @@ if (typeof document !== 'undefined') {
       }
       /* Select focus styles */
       select:focus {
-        border-color: #667eea !important;
-        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1) !important;
+        border-color: ${colors.primary} !important;
+        box-shadow: 0 0 0 3px rgba(15, 82, 186, 0.1) !important;
       }
       select:hover:not(:disabled) {
-        border-color: #d1d5db !important;
+        border-color: ${colors.border} !important;
       }
     `;
     if (document.head) {

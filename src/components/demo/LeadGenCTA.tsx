@@ -7,6 +7,7 @@
  */
 
 import React, { useState } from 'react';
+import colors from '@/lib/design/colors';
 
 /**
  * LeadGenCTA component - Lead generation call-to-action.
@@ -138,15 +139,15 @@ const styles: { [key: string]: React.CSSProperties } = {
   },
   text: {
     fontSize: '1rem',
-    color: '#6b7280',
+    color: colors.textMuted,
     margin: 0,
   },
   button: {
     padding: '0.75rem 1.5rem',
     fontSize: '0.9375rem',
     fontWeight: '600',
-    backgroundColor: '#667eea',
-    color: '#ffffff',
+    backgroundColor: colors.primary,
+    color: colors.textInverse,
     border: 'none',
     borderRadius: '0.5rem',
     cursor: 'pointer',
@@ -185,14 +186,14 @@ const styles: { [key: string]: React.CSSProperties } = {
     fontSize: '1.25rem',
     fontWeight: '700',
     margin: 0,
-    color: '#111827',
+    color: colors.textPrimary,
   },
   closeButton: {
     background: 'none',
     border: 'none',
     fontSize: '1.5rem',
     lineHeight: '1',
-    color: '#6b7280',
+    color: colors.textMuted,
     cursor: 'pointer',
     padding: '0.25rem',
     borderRadius: '0.25rem',
@@ -211,12 +212,12 @@ const styles: { [key: string]: React.CSSProperties } = {
   label: {
     fontSize: '0.875rem',
     fontWeight: '600',
-    color: '#374151',
+    color: colors.textPrimary,
   },
   input: {
     padding: '0.75rem',
     fontSize: '0.9375rem',
-    border: '1px solid #d1d5db',
+    border: `1px solid ${colors.border}`,
     borderRadius: '0.5rem',
     outline: 'none',
     transition: 'border-color 0.2s',
@@ -232,8 +233,8 @@ const styles: { [key: string]: React.CSSProperties } = {
     fontSize: '0.9375rem',
     fontWeight: '600',
     backgroundColor: 'transparent',
-    color: '#6b7280',
-    border: '1px solid #d1d5db',
+    color: colors.textMuted,
+    border: `1px solid ${colors.border}`,
     borderRadius: '0.5rem',
     cursor: 'pointer',
     outline: 'none',
@@ -243,8 +244,8 @@ const styles: { [key: string]: React.CSSProperties } = {
     padding: '0.75rem',
     fontSize: '0.9375rem',
     fontWeight: '600',
-    backgroundColor: '#667eea',
-    color: '#ffffff',
+    backgroundColor: colors.primary,
+    color: colors.textInverse,
     border: 'none',
     borderRadius: '0.5rem',
     cursor: 'pointer',
@@ -260,15 +261,15 @@ if (typeof document !== 'undefined') {
     style.id = styleId;
     style.textContent = `
       button[aria-label="Request API Access"]:hover {
-        background-color: #5568d3 !important;
+        background-color: ${colors.hover} !important;
         transform: translateY(-1px);
       }
       input:focus {
-        border-color: #667eea !important;
-        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1) !important;
+        border-color: ${colors.primary} !important;
+        box-shadow: 0 0 0 3px rgba(15, 82, 186, 0.1) !important;
       }
       button[aria-label="Close modal"]:hover {
-        background-color: #f3f4f6 !important;
+        background-color: ${colors.bgHover} !important;
       }
     `;
     if (document.head) {

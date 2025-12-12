@@ -6,6 +6,7 @@
 
 import React from 'react';
 import Link from 'next/link';
+import colors from '@/lib/design/colors';
 
 /**
  * Homepage component - Marketing landing page.
@@ -59,13 +60,13 @@ const styles: { [key: string]: React.CSSProperties } = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+    background: `linear-gradient(135deg, ${colors.primary} 0%, #764ba2 100%)`,
     padding: '2rem',
   },
   content: {
     textAlign: 'center',
     maxWidth: '600px',
-    color: '#ffffff',
+    color: colors.textInverse,
   },
   title: {
     fontSize: '3.5rem',
@@ -93,8 +94,8 @@ const styles: { [key: string]: React.CSSProperties } = {
     fontSize: '1.25rem',
     fontWeight: '600',
     padding: '1rem 3rem',
-    backgroundColor: '#ffffff',
-    color: '#667eea',
+    backgroundColor: colors.bgPrimary,
+    color: colors.primary,
     border: 'none',
     borderRadius: '50px',
     cursor: 'pointer',

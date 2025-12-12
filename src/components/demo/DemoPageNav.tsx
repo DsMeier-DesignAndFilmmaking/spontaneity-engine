@@ -7,6 +7,7 @@
 
 import React from 'react';
 import Link from 'next/link';
+import colors from '@/lib/design/colors';
 
 /**
  * DemoPageNav component - Top navigation with back home button.
@@ -50,7 +51,7 @@ const styles: { [key: string]: React.CSSProperties } = {
     padding: '0.5rem 0.75rem',
     borderRadius: '0.375rem',
     transition: 'all 0.2s ease',
-    color: '#374151',
+    color: colors.textPrimary,
     fontSize: '0.9375rem',
     fontWeight: '500',
   },
@@ -73,11 +74,11 @@ if (typeof document !== 'undefined') {
     style.id = styleId;
     style.textContent = `
       a[href*="spontaneity-engine"]:hover {
-        background-color: #f3f4f6;
-        color: #111827;
+        background-color: ${colors.bgHover};
+        color: ${colors.textPrimary};
       }
       a[href*="spontaneity-engine"]:focus {
-        outline: 2px solid #667eea;
+        outline: 2px solid ${colors.primary};
         outline-offset: 2px;
       }
     `;

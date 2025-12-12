@@ -2,55 +2,48 @@
  * DeveloperSandbox.tsx
  * Advanced developer sandbox - requires authentication.
  * 
- * Full-featured demo interface with advanced capabilities:
- * - Prompt Versioning: Track and manage different prompt versions
- * - Raw JSON Output: See the exact JSON response from the AI
- * - Log Out functionality
- * - Full API access with authenticated API keys
+ * Enterprise-ready B2B testing interface with:
+ * - Three-column feature showcase
+ * - Pre-populated high-value test scenarios
+ * - Side-by-side Input vs Output JSON comparison
+ * - Advanced developer experience messaging
  */
 
 import React, { useState } from 'react';
 import { supabase, validateSupabaseConfig } from '@/lib/db/supabase';
+import colors from '@/lib/design/colors';
+import { testScenarios, getScenarioById, type TestScenario } from './testScenarios';
 
 /**
- * DeveloperSandbox component - Advanced demo interface.
+ * DeveloperSandbox component - Advanced B2B demo interface.
  * 
  * Features:
- * - AI Testing Controls: Vibe, Time, Location inputs
- * - Generate & Test button (uses authenticated API keys)
- * - Prompt Versioning: Track prompt versions and history
- * - Raw JSON Output: Full JSON response display
- * - Log Out button for session management
+ * - Three-column feature layout (responsive)
+ * - Togglable test scenarios with instant execution
+ * - Side-by-side Input/Output JSON comparison
+ * - B2B-focused messaging and CTAs
+ * - Logout functionality
  */
 export default function DeveloperSandbox() {
-  const [vibe, setVibe] = useState('');
-  const [time, setTime] = useState('');
-  const [location, setLocation] = useState('');
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [promptVersion, setPromptVersion] = useState(1);
-  const [showRawJson, setShowRawJson] = useState(true);
-  const [promptHistory, setPromptHistory] = useState<Array<{ version: number; prompt: string; timestamp: string }>>([]);
+  const [selectedScenario, setSelectedScenario] = useState<string | null>(null);
+  const [inputJson, setInputJson] = useState<string | null>(null);
+  const [outputJson, setOutputJson] = useState<string | null>(null);
 
   /**
    * Handles the logout process.
    * 
    * Executes supabase.auth.signOut() to terminate the session.
    * User remains on /demo page after logout - no redirect occurs.
-   * The auth state will update automatically via onAuthStateChange listener,
-   * causing the UI to transition from DeveloperSandbox to AuthPromptCard.
    */
   const handleLogout = async () => {
     try {
       setLoading(true);
       setError(null);
       
-      // Validate Supabase configuration
       validateSupabaseConfig();
       
-      // Sign out using Supabase directly
-      // User will remain on current page (/demo) after logout
       const { error: signOutError } = await supabase.auth.signOut();
 
       if (signOutError) {
@@ -60,8 +53,6 @@ export default function DeveloperSandbox() {
         return;
       }
 
-      // No redirect - user stays on /demo page
-      // Auth state will update automatically via onAuthStateChange listener
       setLoading(false);
     } catch (err) {
       console.error('Unexpected error during logout:', err);
@@ -71,84 +62,43 @@ export default function DeveloperSandbox() {
   };
 
   /**
-   * Handles the Generate & Test action using authenticated API keys.
-   * Includes prompt versioning and full JSON output.
+   * Handles test scenario selection and instant execution.
    */
-  const handleGenerate = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      setResult(null);
-
-      // Validate inputs
-      if (!vibe.trim() || !time.trim() || !location.trim()) {
-        setError('Please fill in all fields (Vibe, Time, Location)');
-        setLoading(false);
-        return;
-      }
-
-      // Build prompt for versioning
-      const prompt = `Vibe: ${vibe}, Time: ${time}, Location: ${location}`;
-      
-      // TODO: Integrate with SpontaneityEngine using authenticated API keys
-      // For now, return a mock response
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      const mockResult = {
-        version: promptVersion,
-        prompt,
-        vibe,
-        time,
-        location,
-        recommendation: {
-          title: 'Advanced AI Recommendation',
-          activities: [
-            {
-              name: 'Spontaneous Adventure',
-              type: 'outdoor',
-              duration: '2-3 hours',
-              confidence: 0.95,
-            },
-          ],
-          reasoning: 'Generated using authenticated API with full features',
-        },
-        metadata: {
-          adapter: 'OpenAI GPT-4',
-          model: 'gpt-4-turbo',
-          tokens: 150,
-          timestamp: new Date().toISOString(),
-        },
-      };
-
-      const resultString = JSON.stringify(mockResult, null, 2);
-      setResult(resultString);
-
-      // Add to prompt history
-      setPromptHistory((prev) => [
-        ...prev,
-        {
-          version: promptVersion,
-          prompt,
-          timestamp: new Date().toISOString(),
-        },
-      ]);
-
-      setLoading(false);
-    } catch (err) {
-      console.error('Error generating recommendation:', err);
-      setError('Failed to generate recommendation. Please try again.');
-      setLoading(false);
+  const handleScenarioSelect = (scenarioId: string) => {
+    const scenario = getScenarioById(scenarioId);
+    if (!scenario) {
+      setError('Scenario not found');
+      return;
     }
+
+    // Toggle: If same scenario is clicked, deselect it
+    if (selectedScenario === scenarioId) {
+      setSelectedScenario(null);
+      setInputJson(null);
+      setOutputJson(null);
+      return;
+    }
+
+    // Set selected scenario and display JSON
+    setSelectedScenario(scenarioId);
+    setError(null);
+    
+    // Format and display Input JSON
+    setInputJson(JSON.stringify(scenario.input, null, 2));
+    
+    // Format and display Output JSON (simulate instant execution)
+    setOutputJson(JSON.stringify(scenario.output, null, 2));
   };
 
   return (
     <div style={styles.container}>
       <div style={styles.card} data-demo-card>
+        {/* Header */}
         <div style={styles.header}>
           <div>
-            <h1 style={styles.title}>Developer Sandbox</h1>
+            <h1 style={styles.title}>The Developer Sandbox</h1>
             <p style={styles.subtitle}>
-              Advanced AI testing with prompt versioning and raw JSON output
+              Try the Engine — Enterprise testing with advanced capabilities
             </p>
           </div>
           <button
@@ -163,151 +113,111 @@ export default function DeveloperSandbox() {
           </button>
         </div>
 
-        {/* Prompt Versioning */}
-        <div style={styles.versionSection}>
-          <div style={styles.versionControls}>
-            <label style={styles.label} htmlFor="promptVersion">
-              Prompt Version:
-            </label>
-            <input
-              id="promptVersion"
-              type="number"
-              min="1"
-              value={promptVersion}
-              onChange={(e) => setPromptVersion(parseInt(e.target.value, 10) || 1)}
-              style={styles.versionInput}
-              disabled={loading}
-            />
-            <button
-              onClick={() => setPromptVersion((prev) => prev + 1)}
-              disabled={loading}
-              style={styles.versionButton}
-            >
-              New Version
-            </button>
+        {/* Three-Column Feature Layout */}
+        <div style={styles.featuresGrid}>
+          {/* Column 1: Dynamic Trip Logic */}
+          <div style={styles.featureColumn}>
+            <h3 style={styles.featureColumnTitle}>Dynamic Trip Logic</h3>
+            <ul style={styles.featureList}>
+              <li style={styles.featureItem}>Calendar Sync & Live Geo-Routing</li>
+              <li style={styles.featureItem}>Scenario Versioning</li>
+              <li style={styles.featureItem}>Dedicated API Key for Sandbox</li>
+              <li style={styles.featureItem}>Contextual Trip Constraints</li>
+            </ul>
           </div>
+
+          {/* Column 2: Debugging & Precision */}
+          <div style={styles.featureColumn}>
+            <h3 style={styles.featureColumnTitle}>Debugging & Precision</h3>
+            <ul style={styles.featureList}>
+              <li style={styles.featureItem}>Raw JSON & Schema Validation</li>
+              <li style={styles.featureItem}>White-Label API & Branding Preview</li>
+              <li style={styles.featureItem}>Ancillary Data Output</li>
+              <li style={styles.featureItem}>Persistent Test Sessions</li>
+            </ul>
+          </div>
+
+          {/* Column 3: Deployment & Production Readiness */}
+          <div style={styles.featureColumn}>
+            <h3 style={styles.featureColumnTitle}>Deployment & Production Readiness</h3>
+            <ul style={styles.featureList}>
+              <li style={styles.featureItem}>Role-Based Access Control (RBAC) Preview</li>
+              <li style={styles.featureItem}>Enterprise Security Standards</li>
+              <li style={styles.featureItem}>Scalable Architecture</li>
+              <li style={styles.featureItem}>Production Monitoring</li>
+            </ul>
+          </div>
+        </div>
+
+        {/* Test Scenarios Section */}
+        <div style={styles.scenariosSection}>
+          <h3 style={styles.sectionTitle}>High-Impact Test Scenarios</h3>
+          <p style={styles.sectionDescription}>
+            Click any scenario to instantly view Input vs Optimized AI Output side-by-side
+          </p>
           
-          {promptHistory.length > 0 && (
-            <div style={styles.historyBox}>
-              <h4 style={styles.historyTitle}>Prompt History:</h4>
-              {promptHistory.slice(-5).reverse().map((item, idx) => (
-                <div key={idx} style={styles.historyItem}>
-                  <span style={styles.historyVersion}>v{item.version}</span>
-                  <span style={styles.historyPrompt}>{item.prompt.substring(0, 50)}...</span>
-                  <span style={styles.historyTime}>
-                    {new Date(item.timestamp).toLocaleTimeString()}
-                  </span>
+          <div style={styles.scenariosGrid}>
+            {testScenarios.map((scenario) => (
+              <button
+                key={scenario.id}
+                type="button"
+                onClick={() => handleScenarioSelect(scenario.id)}
+                style={{
+                  ...styles.scenarioButton,
+                  ...(selectedScenario === scenario.id ? styles.scenarioButtonActive : {}),
+                }}
+                aria-pressed={selectedScenario === scenario.id}
+              >
+                <div style={styles.scenarioHeader}>
+                  <h4 style={styles.scenarioName}>{scenario.name}</h4>
+                  <span style={styles.scenarioBadge}>{scenario.description}</span>
                 </div>
-              ))}
+                <p style={styles.scenarioCoreFunction}>{scenario.coreFunction}</p>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Side-by-Side Input vs Output Display */}
+        {(inputJson && outputJson) && (
+          <div style={styles.jsonComparisonSection}>
+            <h3 style={styles.sectionTitle}>Input vs Optimized Output</h3>
+            <div style={styles.jsonComparison}>
+              {/* Input JSON */}
+              <div style={styles.jsonPanel}>
+                <div style={styles.jsonPanelHeader}>
+                  <h4 style={styles.jsonPanelTitle}>Input JSON / Constraints</h4>
+                </div>
+                <pre style={styles.jsonContent}>{inputJson}</pre>
+              </div>
+
+              {/* Output JSON */}
+              <div style={styles.jsonPanel}>
+                <div style={styles.jsonPanelHeader}>
+                  <h4 style={styles.jsonPanelTitle}>Resulting Output JSON</h4>
+                </div>
+                <pre style={styles.jsonContent}>{outputJson}</pre>
+              </div>
             </div>
-          )}
-        </div>
-
-        {/* AI Testing Controls */}
-        <div style={styles.controls}>
-          <div style={styles.inputGroup}>
-            <label style={styles.label} htmlFor="vibe">
-              Vibe
-            </label>
-            <input
-              id="vibe"
-              type="text"
-              value={vibe}
-              onChange={(e) => setVibe(e.target.value)}
-              placeholder="e.g., adventurous, relaxed, creative"
-              style={styles.input}
-              disabled={loading}
-            />
           </div>
+        )}
 
-          <div style={styles.inputGroup}>
-            <label style={styles.label} htmlFor="time">
-              Time
-            </label>
-            <input
-              id="time"
-              type="text"
-              value={time}
-              onChange={(e) => setTime(e.target.value)}
-              placeholder="e.g., 2 hours, afternoon, evening"
-              style={styles.input}
-              disabled={loading}
-            />
-          </div>
-
-          <div style={styles.inputGroup}>
-            <label style={styles.label} htmlFor="location">
-              Location
-            </label>
-            <input
-              id="location"
-              type="text"
-              value={location}
-              onChange={(e) => setLocation(e.target.value)}
-              placeholder="e.g., San Francisco, home, outdoors"
-              style={styles.input}
-              disabled={loading}
-            />
-          </div>
-
-          <button
-            onClick={handleGenerate}
-            disabled={loading}
-            style={{
-              ...styles.primaryButton,
-              ...(loading ? styles.buttonDisabled : {}),
-            }}
-          >
-            {loading ? 'Generating...' : 'Generate & Test'}
-          </button>
-        </div>
-
-        {/* Raw JSON Toggle */}
-        <div style={styles.jsonToggle}>
-          <label style={styles.toggleLabel}>
-            <input
-              type="checkbox"
-              checked={showRawJson}
-              onChange={(e) => setShowRawJson(e.target.checked)}
-              style={styles.checkbox}
-            />
-            Show Raw JSON Output
-          </label>
-        </div>
-
-        {/* Results Display */}
+        {/* Error Display */}
         {error && (
           <div style={styles.errorBox}>
             <p style={styles.errorText}>{error}</p>
           </div>
         )}
 
-        {result && (
-          <div style={styles.resultBox}>
-            <h3 style={styles.resultTitle}>Recommendation Result:</h3>
-            {showRawJson ? (
-              <pre style={styles.resultContent}>{result}</pre>
-            ) : (
-              <div style={styles.resultFormatted}>
-                {(() => {
-                  try {
-                    const parsed = JSON.parse(result);
-                    return (
-                      <div>
-                        <p><strong>Version:</strong> {parsed.version}</p>
-                        <p><strong>Recommendation:</strong> {parsed.recommendation?.title}</p>
-                        <p><strong>Adapter:</strong> {parsed.metadata?.adapter}</p>
-                        <p><strong>Model:</strong> {parsed.metadata?.model}</p>
-                      </div>
-                    );
-                  } catch {
-                    return <pre style={styles.resultContent}>{result}</pre>;
-                  }
-                })()}
-              </div>
-            )}
-          </div>
-        )}
+        {/* CTA Section */}
+        <div style={styles.ctaSection}>
+          <h3 style={styles.ctaTitle}>
+            Why Sign In? (The Advanced Developer Experience)
+          </h3>
+          <p style={styles.ctaDescription}>
+            Unlock the full power of the Spontaneity Engine to build, test, and deploy mission-critical travel solutions. Signing in grants you: <strong>Unlimited Enterprise Testing</strong>, <strong>Deep Logic Access</strong>, and <strong>B2B Tools Preview</strong>.
+          </p>
+        </div>
       </div>
     </div>
   );
@@ -319,8 +229,8 @@ const styles: { [key: string]: React.CSSProperties } = {
     padding: '0',
   },
   card: {
-    backgroundColor: '#ffffff',
-    border: '1px solid #e5e7eb',
+    backgroundColor: colors.bgPrimary,
+    border: `1px solid ${colors.border}`,
     borderRadius: '0.75rem',
     padding: '1.5rem',
     boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
@@ -330,145 +240,173 @@ const styles: { [key: string]: React.CSSProperties } = {
     justifyContent: 'space-between',
     alignItems: 'flex-start',
     marginBottom: '2rem',
+    flexWrap: 'wrap',
+    gap: '1rem',
   },
   title: {
     fontSize: '2rem',
     fontWeight: 'bold',
     marginBottom: '0.5rem',
-    color: '#1a1a1a',
+    color: colors.textPrimary,
   },
   subtitle: {
     fontSize: '1rem',
-    color: '#666',
-  },
-  versionSection: {
-    marginBottom: '2rem',
-    padding: '1.5rem',
-    backgroundColor: '#f9f9f9',
-    borderRadius: '8px',
-  },
-  versionControls: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '1rem',
-    marginBottom: '1rem',
-  },
-  versionInput: {
-    padding: '0.5rem',
-    fontSize: '1rem',
-    border: '2px solid #e0e0e0',
-    borderRadius: '6px',
-    width: '80px',
-    outline: 'none',
-  },
-  versionButton: {
-    padding: '0.5rem 1rem',
-    fontSize: '0.875rem',
-    backgroundColor: '#667eea',
-    color: '#ffffff',
-    border: 'none',
-    borderRadius: '6px',
-    cursor: 'pointer',
-  },
-  historyBox: {
-    marginTop: '1rem',
-    padding: '1rem',
-    backgroundColor: '#ffffff',
-    borderRadius: '6px',
-  },
-  historyTitle: {
-    fontSize: '0.875rem',
-    fontWeight: '600',
-    marginBottom: '0.5rem',
-    color: '#333',
-  },
-  historyItem: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '1rem',
-    padding: '0.5rem 0',
-    fontSize: '0.75rem',
-    borderBottom: '1px solid #e0e0e0',
-  },
-  historyVersion: {
-    fontWeight: '600',
-    color: '#667eea',
-    minWidth: '40px',
-  },
-  historyPrompt: {
-    flex: 1,
-    color: '#666',
-  },
-  historyTime: {
-    color: '#999',
-    fontSize: '0.7rem',
-  },
-  controls: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '1.5rem',
-    marginBottom: '1.5rem',
-  },
-  inputGroup: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '0.5rem',
-  },
-  label: {
-    fontSize: '0.875rem',
-    fontWeight: '600',
-    color: '#333',
-  },
-  input: {
-    padding: '0.75rem',
-    fontSize: '1rem',
-    border: '2px solid #e0e0e0',
-    borderRadius: '8px',
-    outline: 'none',
-    transition: 'border-color 0.2s',
-  },
-  primaryButton: {
-    padding: '0.875rem 2rem',
-    fontSize: '1rem',
-    fontWeight: '600',
-    backgroundColor: '#667eea',
-    color: '#ffffff',
-    border: 'none',
-    borderRadius: '8px',
-    cursor: 'pointer',
-    transition: 'background-color 0.2s',
-    outline: 'none',
+    color: colors.textMuted,
   },
   logoutButton: {
     padding: '0.75rem 1.5rem',
     fontSize: '0.875rem',
     fontWeight: '500',
-    backgroundColor: '#f5f5f5',
-    color: '#666',
-    border: '2px solid #e0e0e0',
+    backgroundColor: colors.bgBase,
+    color: colors.textMuted,
+    border: `2px solid ${colors.border}`,
     borderRadius: '8px',
     cursor: 'pointer',
     transition: 'all 0.2s',
     outline: 'none',
+    flexShrink: 0,
   },
   buttonDisabled: {
     opacity: 0.6,
     cursor: 'not-allowed',
   },
-  jsonToggle: {
-    marginBottom: '1.5rem',
+  featuresGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+    gap: '1.5rem',
+    marginBottom: '2.5rem',
+    padding: '1.5rem',
+    backgroundColor: colors.bgBase,
+    borderRadius: '8px',
   },
-  toggleLabel: {
+  featureColumn: {
     display: 'flex',
-    alignItems: 'center',
-    gap: '0.5rem',
-    fontSize: '0.875rem',
-    cursor: 'pointer',
+    flexDirection: 'column',
+    gap: '1rem',
   },
-  checkbox: {
-    width: '18px',
-    height: '18px',
+  featureColumnTitle: {
+    fontSize: '1.125rem',
+    fontWeight: '700',
+    color: colors.primary,
+    marginBottom: '0.5rem',
+  },
+  featureList: {
+    listStyle: 'none',
+    padding: 0,
+    margin: 0,
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '0.75rem',
+  },
+  featureItem: {
+    fontSize: '0.9375rem',
+    color: colors.textPrimary,
+    lineHeight: '1.5',
+    paddingLeft: '1.5rem',
+    position: 'relative',
+  },
+  scenariosSection: {
+    marginBottom: '2.5rem',
+  },
+  sectionTitle: {
+    fontSize: '1.5rem',
+    fontWeight: '700',
+    color: colors.textPrimary,
+    marginBottom: '0.5rem',
+  },
+  sectionDescription: {
+    fontSize: '0.9375rem',
+    color: colors.textMuted,
+    marginBottom: '1.5rem',
+    lineHeight: '1.6',
+  },
+  scenariosGrid: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '1rem',
+  },
+  scenarioButton: {
+    width: '100%',
+    padding: '1.25rem',
+    backgroundColor: colors.bgPrimary,
+    border: `2px solid ${colors.border}`,
+    borderRadius: '8px',
     cursor: 'pointer',
+    textAlign: 'left',
+    transition: 'all 0.2s',
+    outline: 'none',
+  },
+  scenarioButtonActive: {
+    borderColor: colors.primary,
+    backgroundColor: colors.bgAccent,
+    boxShadow: `0 0 0 3px rgba(15, 82, 186, 0.1)`,
+  },
+  scenarioHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: '0.5rem',
+    flexWrap: 'wrap',
+    gap: '0.5rem',
+  },
+  scenarioName: {
+    fontSize: '1.125rem',
+    fontWeight: '700',
+    color: colors.textPrimary,
+    margin: 0,
+  },
+  scenarioBadge: {
+    fontSize: '0.8125rem',
+    fontWeight: '600',
+    color: colors.primary,
+    backgroundColor: colors.bgAccent,
+    padding: '0.25rem 0.75rem',
+    borderRadius: '9999px',
+  },
+  scenarioCoreFunction: {
+    fontSize: '0.875rem',
+    color: colors.textMuted,
+    margin: 0,
+    lineHeight: '1.5',
+  },
+  jsonComparisonSection: {
+    marginBottom: '2.5rem',
+  },
+  jsonComparison: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
+    gap: '1.5rem',
+  },
+  jsonPanel: {
+    display: 'flex',
+    flexDirection: 'column',
+    backgroundColor: colors.bgBase,
+    border: `1px solid ${colors.border}`,
+    borderRadius: '8px',
+    overflow: 'hidden',
+  },
+  jsonPanelHeader: {
+    padding: '0.75rem 1rem',
+    backgroundColor: colors.primary,
+    borderBottom: `1px solid ${colors.border}`,
+  },
+  jsonPanelTitle: {
+    fontSize: '0.875rem',
+    fontWeight: '600',
+    color: colors.textInverse,
+    margin: 0,
+  },
+  jsonContent: {
+    fontSize: '0.8125rem',
+    fontFamily: 'monospace',
+    backgroundColor: colors.bgPrimary,
+    padding: '1rem',
+    margin: 0,
+    overflow: 'auto',
+    whiteSpace: 'pre-wrap',
+    wordBreak: 'break-word',
+    maxHeight: '600px',
+    lineHeight: '1.5',
   },
   errorBox: {
     backgroundColor: '#fee',
@@ -478,36 +416,81 @@ const styles: { [key: string]: React.CSSProperties } = {
     marginBottom: '1.5rem',
   },
   errorText: {
-    color: '#c33',
+    color: colors.error,
     margin: 0,
     fontSize: '0.875rem',
   },
-  resultBox: {
-    backgroundColor: '#f9f9f9',
-    border: '1px solid #e0e0e0',
+  ctaSection: {
+    padding: '2rem',
+    backgroundColor: colors.bgAccent,
     borderRadius: '8px',
-    padding: '1.5rem',
-    marginBottom: '1.5rem',
+    border: `2px solid ${colors.primary}`,
+    textAlign: 'center',
   },
-  resultTitle: {
-    fontSize: '1rem',
-    fontWeight: '600',
+  ctaTitle: {
+    fontSize: '1.5rem',
+    fontWeight: '700',
+    color: colors.primary,
     marginBottom: '1rem',
-    color: '#333',
   },
-  resultContent: {
-    fontSize: '0.875rem',
-    fontFamily: 'monospace',
-    backgroundColor: '#ffffff',
-    padding: '1rem',
-    borderRadius: '4px',
-    overflow: 'auto',
-    margin: 0,
-    whiteSpace: 'pre-wrap',
-    wordBreak: 'break-word',
-  },
-  resultFormatted: {
-    fontSize: '0.875rem',
+  ctaDescription: {
+    fontSize: '1rem',
+    color: colors.textPrimary,
     lineHeight: '1.6',
+    margin: 0,
   },
 };
+
+// Add responsive styles and hover effects
+if (typeof document !== 'undefined') {
+  const styleId = 'developer-sandbox-styles';
+  if (!document.getElementById(styleId)) {
+    const style = document.createElement('style');
+    style.id = styleId;
+    style.textContent = `
+      /* Feature columns: stack on mobile */
+      @media (max-width: 767px) {
+        [data-demo-card] [style*="gridTemplateColumns"] {
+          grid-template-columns: 1fr !important;
+        }
+      }
+      
+      /* JSON comparison: stack on mobile */
+      @media (max-width: 639px) {
+        [data-demo-card] [style*="jsonComparison"] {
+          grid-template-columns: 1fr !important;
+        }
+      }
+      
+      /* Scenario button hover */
+      button[aria-pressed="false"]:not(:disabled):hover {
+        border-color: ${colors.hover} !important;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1) !important;
+      }
+      
+      button[aria-pressed="true"]:not(:disabled):hover {
+        border-color: ${colors.primary} !important;
+        box-shadow: 0 0 0 3px rgba(15, 82, 186, 0.15) !important;
+      }
+      
+      /* Logout button hover */
+      button[style*="logoutButton"]:not(:disabled):hover {
+        background-color: ${colors.bgHover} !important;
+        border-color: ${colors.textMuted} !important;
+      }
+      
+      /* Feature item bullet points */
+      [data-demo-card] [style*="featureItem"]::before {
+        content: '✓';
+        position: absolute;
+        left: 0;
+        color: ${colors.focus};
+        font-weight: bold;
+      }
+    `;
+    if (document.head) {
+      document.head.appendChild(style);
+    }
+  }
+}

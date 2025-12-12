@@ -8,6 +8,7 @@
 
 import React, { useState } from 'react';
 import { useAuth } from '@/stores/auth';
+import colors from '@/lib/design/colors';
 
 /**
  * AuthPromptCard component - Sign-in prompt for advanced features.
@@ -56,7 +57,7 @@ export default function AuthPromptCard() {
         </ul>
         
         <p style={styles.description}>
-          Sign in with Google to access the full Developer Sandbox with advanced capabilities:
+          Sign in with Google to access the full Developer Sandbox:
         </p>
         
         <ul style={styles.featureList}>
@@ -140,15 +141,15 @@ const styles: { [key: string]: React.CSSProperties } = {
     padding: '0',
   },
   card: {
-    backgroundColor: '#ffffff',
-    border: '2px solid #667eea', // Premium accent border
-    borderRadius: '0.75rem', // rounded-xl equivalent
-    padding: '1.5rem', // p-6 equivalent
-    boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)', // shadow-sm equivalent
+    backgroundColor: colors.bgPrimary,
+    border: `2px solid ${colors.primary}`,
+    borderRadius: '0.75rem',
+    padding: '1.5rem',
+    boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
     textAlign: 'center',
     display: 'flex',
     flexDirection: 'column',
-    gap: '1rem', // gap-4 equivalent
+    gap: '1rem',
     height: '100%',
   },
   iconContainer: {
@@ -159,37 +160,38 @@ const styles: { [key: string]: React.CSSProperties } = {
     display: 'inline-block',
   },
   title: {
-    fontSize: '1.5rem', // Improved typography hierarchy
+    fontSize: '1.5rem',
     fontWeight: '700',
     marginBottom: '0.5rem',
-    color: '#111827', // Improved contrast
+    color: colors.textPrimary,
     lineHeight: '1.3',
   },
   subheading: {
     fontSize: '1rem',
     fontWeight: '600',
-    color: '#667eea',
+    color: colors.primary,
     marginBottom: '0.5rem',
     lineHeight: '1.4',
   },
   description: {
     fontSize: '0.9375rem',
-    color: '#6b7280',
+    color: colors.textMuted,
     marginBottom: '0',
     lineHeight: '1.5',
+    textAlign: 'left',
   },
   premiumFeatureList: {
     listStyle: 'none',
     padding: '0.75rem',
     margin: '0.5rem 0',
     textAlign: 'left',
-    backgroundColor: '#f0f4ff',
+    backgroundColor: colors.bgAccent,
     borderRadius: '0.5rem',
   },
   premiumFeatureItem: {
     padding: '0.25rem 0',
     fontSize: '0.875rem',
-    color: '#4f46e5',
+    color: colors.primary,
     lineHeight: '1.6',
     fontWeight: '500',
   },
@@ -205,7 +207,7 @@ const styles: { [key: string]: React.CSSProperties } = {
     gap: '1rem',
     padding: '1rem',
     marginBottom: '0.75rem',
-    backgroundColor: '#f9f9f9',
+    backgroundColor: colors.bgBase,
     borderRadius: '8px',
     fontSize: '0.95rem',
     lineHeight: '1.5',
@@ -233,14 +235,14 @@ const styles: { [key: string]: React.CSSProperties } = {
     padding: '1rem 2.5rem',
     fontSize: '1.1rem',
     fontWeight: '600',
-    backgroundColor: '#667eea',
-    color: '#ffffff',
+    backgroundColor: colors.primary,
+    color: colors.textInverse,
     border: 'none',
     borderRadius: '8px',
     cursor: 'pointer',
     transition: 'all 0.2s',
     outline: 'none',
-    boxShadow: '0 2px 8px rgba(102, 126, 234, 0.3)',
+    boxShadow: `0 2px 8px rgba(15, 82, 186, 0.3)`,
   },
   buttonIcon: {
     fontSize: '1.25rem',
@@ -252,7 +254,7 @@ const styles: { [key: string]: React.CSSProperties } = {
   note: {
     marginTop: '0.5rem',
     fontSize: '0.8125rem',
-    color: '#9ca3af',
+    color: colors.textMuted,
     fontStyle: 'normal',
   },
   whySignInSection: {
@@ -265,7 +267,7 @@ const styles: { [key: string]: React.CSSProperties } = {
     fontSize: '0.8125rem',
     fontWeight: '500',
     backgroundColor: 'transparent',
-    color: '#667eea',
+    color: colors.primary,
     border: 'none',
     borderRadius: '0.375rem',
     cursor: 'pointer',
@@ -281,13 +283,13 @@ const styles: { [key: string]: React.CSSProperties } = {
   whySignInContent: {
     marginTop: '0.5rem',
     padding: '0.75rem',
-    backgroundColor: '#f9fafb',
+    backgroundColor: colors.bgHover,
     borderRadius: '0.5rem',
     textAlign: 'left',
   },
   whySignInText: {
     fontSize: '0.8125rem',
-    color: '#6b7280',
+    color: colors.textMuted,
     lineHeight: '1.5',
     margin: 0,
   },

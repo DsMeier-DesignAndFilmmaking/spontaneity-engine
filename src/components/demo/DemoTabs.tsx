@@ -7,6 +7,7 @@
  */
 
 import React, { useRef, useEffect } from 'react';
+import colors from '@/lib/design/colors';
 
 export interface DemoTabsProps {
   activeTab: 'free' | 'advanced';
@@ -129,7 +130,7 @@ const styles: { [key: string]: React.CSSProperties } = {
     display: 'flex',
     gap: '0.5rem',
     marginBottom: '1.5rem',
-    backgroundColor: '#f3f4f6',
+    backgroundColor: colors.bgHover,
     padding: '0.25rem',
     borderRadius: '0.5rem',
     width: '100%',
@@ -141,7 +142,7 @@ const styles: { [key: string]: React.CSSProperties } = {
     fontSize: '0.9375rem',
     fontWeight: '600',
     backgroundColor: 'transparent',
-    color: '#6b7280',
+    color: colors.textMuted,
     border: 'none',
     borderRadius: '0.375rem',
     cursor: 'pointer',
@@ -163,18 +164,18 @@ const styles: { [key: string]: React.CSSProperties } = {
   tabSubtext: {
     fontSize: '0.75rem',
     fontWeight: '400',
-    color: '#9ca3af',
+    color: colors.textMuted,
     lineHeight: '1.2',
     textAlign: 'center',
     transition: 'color 0.2s ease-in-out',
   },
   tabActive: {
-    backgroundColor: '#ffffff',
-    color: '#667eea',
+    backgroundColor: colors.bgPrimary,
+    color: colors.primary,
     boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)',
   },
   tabSubtextActive: {
-    color: '#9ca3af',
+    color: colors.textMuted,
   },
 };
 
@@ -191,7 +192,7 @@ if (typeof document !== 'undefined') {
       }
       /* Tab focus styles */
       button[role="tab"]:focus {
-        outline: 2px solid #667eea;
+        outline: 2px solid ${colors.primary};
         outline-offset: 2px;
       }
       button[role="tab"]:focus:not(:focus-visible) {
@@ -199,16 +200,16 @@ if (typeof document !== 'undefined') {
       }
       /* Tab hover states */
       button[role="tab"]:not([aria-selected="true"]):hover {
-        background-color: #e5e7eb !important;
-        color: #374151 !important;
+        background-color: ${colors.bgHover} !important;
+        color: ${colors.textPrimary} !important;
       }
       button[role="tab"][aria-selected="true"]:hover {
-        background-color: #ffffff !important;
-        color: #111827 !important;
+        background-color: ${colors.bgPrimary} !important;
+        color: ${colors.textPrimary} !important;
         box-shadow: 0 2px 4px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06) !important;
       }
       button[role="tab"][aria-selected="true"]:hover span[style*="tabSubtext"] {
-        color: #6b7280 !important;
+        color: ${colors.textMuted} !important;
       }
       /* Active tab indicator (subtle underline) */
       button[role="tab"][aria-selected="true"]::after {
@@ -219,7 +220,7 @@ if (typeof document !== 'undefined') {
         transform: translateX(-50%);
         width: calc(100% - 2rem);
         height: 2px;
-        background-color: #667eea;
+        background-color: ${colors.primary};
         border-radius: 2px;
       }
       /* Mobile adjustments */

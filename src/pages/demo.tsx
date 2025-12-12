@@ -44,34 +44,37 @@ export default function DemoPage() {
   // Conditionally render advanced features based on auth status
   return (
     <div style={demoStyles.container}>
-      {/* Top Navigation with Logo */}
-      <DemoPageNav />
-
-      {/* Developer Story Header */}
-      <div style={demoStyles.header} data-header>
-        <h1 style={demoStyles.headerTitle}>Experience the Spontaneity Engine in action.</h1>
-        <p style={demoStyles.headerSubtext}>
-          Generate instant micro-adventures or unlock the full developer sandbox with routing, constraints, and enterprise-ready workflows.
-        </p>
+      {/* Top Navigation with Logo and Tabs */}
+      <div style={demoStyles.topSection}>
+        <DemoPageNav />
+        <div style={demoStyles.headerTabsContainer}>
+          <div style={demoStyles.header} data-header>
+            <h1 style={demoStyles.headerTitle}>Experience the Spontaneity Engine in action.</h1>
+            <p style={demoStyles.headerSubtext}>
+              Generate instant micro-adventures or unlock the full developer sandbox with routing, constraints, and enterprise-ready workflows.
+            </p>
+          </div>
+          {/* Tabs - visible on both mobile and desktop */}
+          <div style={demoStyles.tabsContainer}>
+            <DemoTabs activeTab={activeTab} onTabChange={setActiveTab} />
+          </div>
+        </div>
       </div>
 
-      {/* Tabs - visible on both mobile and desktop */}
-      <div style={demoStyles.tabsContainer}>
-        <DemoTabs activeTab={activeTab} onTabChange={setActiveTab} />
-      </div>
-
-      {/* Tab Content Container - only active tab is visible */}
+      {/* Tab Content Container - only active tab is visible, max-width constrained */}
       <div style={demoStyles.contentContainer} data-content-container>
         {/* Free Demo Tab Content */}
         <div
           style={{
             ...demoStyles.tabContent,
+            ...demoStyles.moduleWrapper,
             ...(activeTab === 'free' ? demoStyles.tabContentActive : demoStyles.tabContentHidden),
           }}
           role="tabpanel"
           id="free-demo-panel"
           aria-labelledby="tab-free-demo"
           data-tab-content="free"
+          data-module-wrapper
         >
           <FreeDemoWidget />
         </div>
@@ -80,12 +83,14 @@ export default function DemoPage() {
         <div
           style={{
             ...demoStyles.tabContent,
+            ...demoStyles.moduleWrapper,
             ...(activeTab === 'advanced' ? demoStyles.tabContentActive : demoStyles.tabContentHidden),
           }}
           role="tabpanel"
           id="advanced-demo-panel"
           aria-labelledby="tab-advanced-demo"
           data-tab-content="advanced"
+          data-module-wrapper
         >
           {authStatus === 'LOADING' ? (
             // Show nothing while loading
@@ -113,12 +118,20 @@ const demoStyles: { [key: string]: React.CSSProperties } = {
   container: {
     minHeight: '100vh',
     backgroundColor: '#f5f5f5',
-    padding: '2.5rem 1rem',
+    padding: '1rem 1rem 2.5rem 1rem',
+  },
+  topSection: {
+    maxWidth: '1280px',
+    margin: '0 auto',
+    width: '100%',
+  },
+  headerTabsContainer: {
+    width: '100%',
+    padding: '0',
   },
   header: {
-    maxWidth: '1280px',
-    margin: '0 auto 3rem auto',
-    padding: '0 1rem',
+    margin: '0 0 2rem 0',
+    padding: '0',
     textAlign: 'center',
   },
   headerTitle: {
@@ -138,15 +151,24 @@ const demoStyles: { [key: string]: React.CSSProperties } = {
     marginRight: 'auto',
   },
   tabsContainer: {
-    maxWidth: '1280px',
-    margin: '0 auto 1.5rem auto',
-    padding: '0 1rem',
+    margin: '0 0 1.5rem 0',
+    padding: '0',
+    display: 'flex',
+    justifyContent: 'center',
+    width: '100%',
   },
   contentContainer: {
     maxWidth: '1280px',
     margin: '0 auto',
     width: '100%',
     position: 'relative',
+    display: 'flex',
+    justifyContent: 'center',
+  },
+  moduleWrapper: {
+    maxWidth: '600px',
+    width: '100%',
+    margin: '0 auto',
   },
   tabContent: {
     width: '100%',
@@ -202,10 +224,26 @@ if (typeof document !== 'undefined') {
           max-height: 200px;
         }
       }
-      /* Mobile header alignment */
-      @media (max-width: 640px) {
+      /* Mobile header alignment and padding */
+      @media (max-width: 799px) {
         [data-header] {
           text-align: left !important;
+        }
+        /* Mobile: modules full-width with padding */
+        [data-content-container] {
+          padding: 0 1rem !important;
+        }
+        [data-module-wrapper] {
+          max-width: 100% !important;
+        }
+      }
+      /* Desktop: center modules with max-width 600px */
+      @media (min-width: 800px) {
+        [data-content-container] {
+          padding: 0 !important;
+        }
+        [data-module-wrapper] {
+          max-width: 600px !important;
         }
       }
       /* Tab content visibility - only active tab is shown */

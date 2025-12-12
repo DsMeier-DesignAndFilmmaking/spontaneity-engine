@@ -41,21 +41,20 @@ export default function DemoPageNav() {
 
 const styles: { [key: string]: React.CSSProperties } = {
   nav: {
-    maxWidth: '1280px',
-    margin: '0 auto',
-    padding: '1rem 1rem 0 1rem',
+    padding: '0.75rem 0 1rem 0',
   },
   logoLink: {
     display: 'inline-block',
     textDecoration: 'none',
-    padding: '0.5rem',
+    padding: '0.25rem',
     borderRadius: '0.375rem',
     transition: 'opacity 0.2s',
+    lineHeight: 0, // Remove inline spacing
   },
   logo: {
     display: 'block',
-    width: '32px',
-    height: '32px',
+    width: '30px',
+    height: '30px',
   },
 };
 

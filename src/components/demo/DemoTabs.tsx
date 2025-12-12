@@ -123,6 +123,7 @@ const styles: { [key: string]: React.CSSProperties } = {
     padding: '0.25rem',
     borderRadius: '0.5rem',
     width: '100%',
+    maxWidth: '600px',
   },
   tab: {
     flex: 1,

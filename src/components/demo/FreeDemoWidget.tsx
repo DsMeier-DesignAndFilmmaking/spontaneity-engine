@@ -283,7 +283,7 @@ export default function FreeDemoWidget() {
 
           <div style={styles.inputGroup}>
             <label style={styles.label} htmlFor="time">
-              Time
+              Duration
             </label>
             <select
               id="time"

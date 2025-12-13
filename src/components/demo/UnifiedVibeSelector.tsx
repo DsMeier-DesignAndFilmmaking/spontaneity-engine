@@ -42,6 +42,16 @@ const PRESETS = [
   { text: 'Relaxing', field: 'vibe' as const, vibes: ['Relaxed'] },
 ];
 
+// Tooltip content for each preset
+const PRESET_TOOLTIPS: Record<string, string> = {
+  '2 hours': 'Biases recommendations toward nearby, short experiences that fit within ~2 hours. Does not affect budget or vibe.',
+  'Low budget': 'Prioritizes free or low-cost options. Higher-cost experiences may still appear if they strongly match your other preferences.',
+  'Something creative': 'Boosts creative experiences like art, culture, or hands-on activities. You can still refine vibes manually.',
+  'Group activity': 'Favors experiences that work well with multiple people. Does not lock group size.',
+  'Outdoor': 'Prefers outdoor or open-air activities when possible. Indoor options may appear if conditions require.',
+  'Relaxing': 'Biases toward slower-paced, low-stress experiences. Can be combined with other vibes.',
+};
+
 /**
  * UnifiedVibeSelector component - Merged presets and vibe chips.
  * 
@@ -55,21 +65,99 @@ export default function UnifiedVibeSelector({
   disabled = false,
 }: UnifiedVibeSelectorProps) {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [activeTooltipIndex, setActiveTooltipIndex] = useState<number | null>(null);
   const dropdownRef = React.useRef<HTMLDivElement>(null);
+  const tooltipRefs = React.useRef<(HTMLButtonElement | null)[]>([]);
+  const tooltipTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
 
-  // Close dropdown on click outside
+  // Detect mobile device
+  const [isMobile, setIsMobile] = useState(false);
+  
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768 || 'ontouchstart' in window);
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  // Close dropdown and tooltips on click outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+      const target = event.target as Node;
+      
+      if (dropdownRef.current && !dropdownRef.current.contains(target)) {
         setIsDropdownOpen(false);
+      }
+      
+      // Close tooltip if clicking outside tooltip area
+      const clickedTooltipButton = tooltipRefs.current.some(ref => 
+        ref && ref.contains(target)
+      );
+      if (!clickedTooltipButton && activeTooltipIndex !== null) {
+        setActiveTooltipIndex(null);
       }
     };
 
-    if (isDropdownOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-      return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isDropdownOpen, activeTooltipIndex]);
+
+  // Handle tooltip interactions
+  const handleTooltipMouseEnter = (index: number) => {
+    if (disabled) return;
+    // Clear any existing timeout
+    if (tooltipTimeoutRef.current) {
+      clearTimeout(tooltipTimeoutRef.current);
+      tooltipTimeoutRef.current = null;
     }
-  }, [isDropdownOpen]);
+    // Show tooltip on desktop hover, or on mobile if already shown
+    if (!isMobile || activeTooltipIndex === index) {
+      setActiveTooltipIndex(index);
+    }
+  };
+
+  const handleTooltipMouseLeave = () => {
+    // Clear any existing timeout
+    if (tooltipTimeoutRef.current) {
+      clearTimeout(tooltipTimeoutRef.current);
+    }
+    // Add delay before hiding to allow moving to tooltip (desktop only)
+    if (!isMobile) {
+      tooltipTimeoutRef.current = setTimeout(() => {
+        setActiveTooltipIndex(null);
+        tooltipTimeoutRef.current = null;
+      }, 200);
+    } else {
+      // On mobile, don't auto-hide on mouse leave (use click to dismiss)
+    }
+  };
+
+  // Keep tooltip visible when hovering over it
+  const handleTooltipMouseEnterTooltip = (index: number) => {
+    if (disabled) return;
+    // Clear any existing timeout
+    if (tooltipTimeoutRef.current) {
+      clearTimeout(tooltipTimeoutRef.current);
+      tooltipTimeoutRef.current = null;
+    }
+    // Keep tooltip visible when hovering over it
+    setActiveTooltipIndex(index);
+  };
+
+  const handleTooltipClick = (index: number, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (disabled) return;
+    
+    if (isMobile) {
+      // Toggle on mobile
+      setActiveTooltipIndex(activeTooltipIndex === index ? null : index);
+    } else {
+      // On desktop, clicking also shows tooltip
+      setActiveTooltipIndex(index);
+    }
+  };
 
   // Parse current value into array
   const selectedVibes = value
@@ -115,6 +203,13 @@ export default function UnifiedVibeSelector({
     onChange(newSelected.join(', '));
   };
 
+  // Clear all selected vibes
+  const handleClearAll = (e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent dropdown toggle
+    if (disabled) return;
+    onChange('');
+  };
+
 
   return (
     <div style={styles.container}>
@@ -124,22 +219,86 @@ export default function UnifiedVibeSelector({
         <div style={styles.presetsRow} data-presets-row>
           {PRESETS.map((preset, index) => {
             const isActive = isPresetActive(preset);
+            const tooltipText = PRESET_TOOLTIPS[preset.text];
+            const showTooltip = activeTooltipIndex === index && tooltipText;
+            
             return (
-              <button
+              <div
                 key={index}
-                type="button"
-                onClick={() => handlePresetClick(preset)}
-                disabled={disabled}
-                style={{
-                  ...styles.presetButton,
-                  ...(isActive ? styles.presetButtonActive : {}),
-                  ...(disabled ? styles.buttonDisabled : {}),
-                }}
-                aria-label={`Quick action: ${preset.text}`}
-                aria-pressed={isActive}
+                style={styles.presetButtonWrapper}
+                onMouseEnter={() => handleTooltipMouseEnter(index)}
+                onMouseLeave={handleTooltipMouseLeave}
               >
-                {preset.text}
-              </button>
+                <button
+                  type="button"
+                  onClick={() => handlePresetClick(preset)}
+                  disabled={disabled}
+                  style={{
+                    ...styles.presetButton,
+                    ...(isActive ? styles.presetButtonActive : {}),
+                    ...(disabled ? styles.buttonDisabled : {}),
+                  }}
+                  aria-label={`Quick action: ${preset.text}`}
+                  aria-pressed={isActive}
+                >
+                  {preset.text}
+                </button>
+                {tooltipText && (
+                  <button
+                    ref={(el) => { tooltipRefs.current[index] = el; }}
+                    type="button"
+                    onClick={(e) => handleTooltipClick(index, e)}
+                    disabled={disabled}
+                    style={styles.infoButton}
+                    aria-label={`Information about ${preset.text}`}
+                    aria-expanded={showTooltip ? true : false}
+                  >
+                    <svg
+                      width="14"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      xmlns="http://www.w3.org/2000/svg"
+                      style={styles.infoIcon}
+                      aria-hidden="true"
+                    >
+                      <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" />
+                      <path d="M12 16V12M12 8H12.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                    </svg>
+                  </button>
+                )}
+                {showTooltip && (
+                  <>
+                    {isMobile && (
+                      <div
+                        style={styles.tooltipBackdrop}
+                        onClick={() => setActiveTooltipIndex(null)}
+                        aria-hidden="true"
+                      />
+                    )}
+                    <div
+                      style={{
+                        ...styles.tooltip,
+                        ...(isMobile ? styles.tooltipMobile : {}),
+                      }}
+                      role="tooltip"
+                      onMouseEnter={() => handleTooltipMouseEnterTooltip(index)}
+                      onMouseLeave={handleTooltipMouseLeave}
+                    >
+                      {tooltipText}
+                    </div>
+                    {/* Invisible hover area above tooltip to keep it visible */}
+                    {!isMobile && (
+                      <div
+                        style={styles.tooltipHoverArea}
+                        onMouseEnter={() => handleTooltipMouseEnterTooltip(index)}
+                        onMouseLeave={handleTooltipMouseLeave}
+                        aria-hidden="true"
+                      />
+                    )}
+                  </>
+                )}
+              </div>
             );
           })}
         </div>
@@ -175,26 +334,56 @@ export default function UnifiedVibeSelector({
                 ? selectedVibes[0]
                 : `${selectedVibes.length} selected`}
             </span>
-            <svg
-              width="20"
-              height="20"
-              viewBox="0 0 24 24"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-              style={{
-                ...styles.dropdownArrow,
-                transform: isDropdownOpen ? 'rotate(180deg)' : 'rotate(0deg)',
-              }}
-              aria-hidden="true"
-            >
-              <path
-                d="M6 9L12 15L18 9"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
+            <div style={styles.dropdownIcons}>
+              {selectedVibes.length > 0 && (
+                <button
+                  type="button"
+                  onClick={handleClearAll}
+                  disabled={disabled}
+                  style={styles.clearButton}
+                  aria-label="Clear all selected vibes"
+                  title="Clear all"
+                >
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    xmlns="http://www.w3.org/2000/svg"
+                    style={styles.clearIcon}
+                    aria-hidden="true"
+                  >
+                    <path
+                      d="M18 6L6 18M6 6L18 18"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                </button>
+              )}
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+                style={{
+                  ...styles.dropdownArrow,
+                  transform: isDropdownOpen ? 'rotate(180deg)' : 'rotate(0deg)'
+                }}
+                aria-hidden="true"
+              >
+                <path
+                  d="M6 9L12 15L18 9"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </div>
           </button>
 
           {/* Dropdown Menu */}
@@ -242,6 +431,40 @@ export default function UnifiedVibeSelector({
                   </button>
                 );
               })}
+              {selectedVibes.length > 0 && (
+                <div style={styles.clearAllDivider} />
+              )}
+              {selectedVibes.length > 0 && (
+                <button
+                  type="button"
+                  onClick={handleClearAll}
+                  disabled={disabled}
+                  style={{
+                    ...styles.clearAllButton,
+                    ...(disabled ? styles.buttonDisabled : {}),
+                  }}
+                  aria-label="Clear all selected vibes"
+                >
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    xmlns="http://www.w3.org/2000/svg"
+                    style={styles.clearAllIcon}
+                    aria-hidden="true"
+                  >
+                    <path
+                      d="M18 6L6 18M6 6L18 18"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                  <span>Clear all</span>
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -272,6 +495,14 @@ const styles: { [key: string]: React.CSSProperties } = {
     overflowX: 'auto',
     paddingBottom: '0.25rem',
   },
+  presetButtonWrapper: {
+    position: 'relative',
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '0.25rem',
+    transform: 'none',
+    zIndex: 1,
+  },
   presetButton: {
     padding: '0.75rem 1.25rem',
     fontSize: '0.9375rem',
@@ -281,17 +512,92 @@ const styles: { [key: string]: React.CSSProperties } = {
     border: `1px solid ${colors.primary}`,
     borderRadius: '9999px',
     cursor: 'pointer',
-    transition: 'all 0.2s',
+    transition: 'background-color 0.2s, border-color 0.2s, color 0.2s',
     outline: 'none',
     minHeight: '44px',
     whiteSpace: 'nowrap',
     flexShrink: 0,
   },
   presetButtonActive: {
-    backgroundColor: colors.bgPrimary,
+    backgroundColor: colors.primary,
     borderColor: colors.primary,
-    color: colors.primary,
-    boxShadow: `0 0 0 2px ${colors.primary}20`,
+    color: colors.textInverse,
+  },
+  infoButton: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '20px',
+    height: '20px',
+    minWidth: '20px',
+    minHeight: '20px',
+    padding: 0,
+    backgroundColor: 'transparent',
+    border: 'none',
+    borderRadius: '50%',
+    cursor: 'pointer',
+    transition: 'all 0.2s',
+    outline: 'none',
+    color: colors.textMuted,
+    flexShrink: 0,
+  },
+  infoIcon: {
+    width: '14px',
+    height: '14px',
+    color: 'currentColor',
+  },
+  tooltip: {
+    position: 'absolute',
+    bottom: '100%',
+    left: '50%',
+    transform: 'translateX(-50%)',
+    marginBottom: '0.5rem',
+    padding: '0.75rem',
+    maxWidth: '280px',
+    width: 'max-content',
+    fontSize: '0.8125rem',
+    lineHeight: '1.4',
+    color: colors.textPrimary,
+    backgroundColor: colors.bgPrimary,
+    border: `1px solid ${colors.border}`,
+    borderRadius: '0.5rem',
+    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+    zIndex: 1001,
+    pointerEvents: 'auto',
+    whiteSpace: 'normal',
+    textAlign: 'left',
+  },
+  tooltipHoverArea: {
+    position: 'absolute',
+    bottom: '100%',
+    left: '50%',
+    transform: 'translateX(-50%)',
+    width: '300px',
+    height: '1rem',
+    marginBottom: '0.25rem',
+    zIndex: 1000,
+    pointerEvents: 'auto',
+  },
+  tooltipMobile: {
+    position: 'fixed',
+    bottom: 'auto',
+    left: '50%',
+    top: '50%',
+    transform: 'translate(-50%, -50%)',
+    marginBottom: 0,
+    maxWidth: 'calc(100vw - 2rem)',
+    width: 'auto',
+    pointerEvents: 'auto',
+  },
+  tooltipBackdrop: {
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    zIndex: 1000,
+    pointerEvents: 'auto',
   },
   dropdownSection: {
     marginBottom: '0',
@@ -325,6 +631,32 @@ const styles: { [key: string]: React.CSSProperties } = {
   },
   dropdownValue: {
     flex: 1,
+  },
+  dropdownIcons: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.5rem',
+    flexShrink: 0,
+  },
+  clearButton: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '24px',
+    height: '24px',
+    padding: 0,
+    backgroundColor: 'transparent',
+    border: 'none',
+    borderRadius: '50%',
+    cursor: 'pointer',
+    transition: 'all 0.2s',
+    outline: 'none',
+    color: colors.textMuted,
+  },
+  clearIcon: {
+    width: '16px',
+    height: '16px',
+    color: 'currentColor',
   },
   dropdownArrow: {
     width: '20px',
@@ -396,6 +728,35 @@ const styles: { [key: string]: React.CSSProperties } = {
   dropdownOptionLabel: {
     flex: 1,
   },
+  clearAllDivider: {
+    height: '1px',
+    backgroundColor: colors.bgHover,
+    margin: '0.25rem 0',
+  },
+  clearAllButton: {
+    width: '100%',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '0.5rem',
+    padding: '0.75rem 1rem',
+    fontSize: '0.9375rem',
+    fontWeight: '500',
+    color: colors.textMuted,
+    backgroundColor: 'transparent',
+    border: 'none',
+    borderTop: `1px solid ${colors.bgHover}`,
+    cursor: 'pointer',
+    transition: 'all 0.2s',
+    outline: 'none',
+    minHeight: '44px',
+    textAlign: 'center',
+  },
+  clearAllIcon: {
+    width: '16px',
+    height: '16px',
+    color: 'currentColor',
+  },
   buttonDisabled: {
     opacity: 0.6,
     cursor: 'not-allowed',
@@ -414,12 +775,20 @@ if (typeof document !== 'undefined') {
         background-color: ${colors.bgAccent} !important;
         border-color: ${colors.hover} !important;
         color: ${colors.hover} !important;
-        transform: translateY(-1px);
       }
       button[aria-label^="Quick action"][aria-pressed="true"]:not(:disabled):hover {
-        background-color: ${colors.bgAccent} !important;
-        border-color: ${colors.primary} !important;
-        color: ${colors.primary} !important;
+        background-color: ${colors.hover} !important;
+        border-color: ${colors.hover} !important;
+        color: ${colors.textInverse} !important;
+      }
+      /* Info button hover */
+      button[aria-label^="Information about"]:not(:disabled):hover {
+        background-color: ${colors.bgHover} !important;
+        color: ${colors.textPrimary} !important;
+      }
+      button[aria-label^="Information about"]:not(:disabled):focus {
+        outline: 2px solid ${colors.primary};
+        outline-offset: 2px;
       }
       /* Dropdown button hover */
       button[aria-label="Select vibes"]:not(:disabled):hover {
@@ -436,13 +805,26 @@ if (typeof document !== 'undefined') {
       button[role="option"][aria-selected="true"]:not(:disabled):hover {
         background-color: ${colors.bgAccent} !important;
       }
+      /* Clear button hover */
+      button[aria-label="Clear all selected vibes"]:not(:disabled):hover {
+        background-color: ${colors.bgHover} !important;
+        color: ${colors.textPrimary} !important;
+      }
+      button[aria-label="Clear all selected vibes"]:not(:disabled):hover svg {
+        color: ${colors.textPrimary} !important;
+      }
       /* Focus states */
       button:focus {
         outline: 2px solid ${colors.primary};
         outline-offset: 2px;
       }
-      button:active:not(:disabled) {
-        transform: translateY(0);
+      /* Prevent any transform on preset buttons */
+      button[aria-label^="Quick action"] {
+        transform: none !important;
+      }
+      /* Prevent movement on preset button wrapper */
+      [data-presets-row] > div {
+        transform: none !important;
       }
       /* Mobile horizontal scroll for presets */
       @media (max-width: 639px) {
@@ -450,6 +832,12 @@ if (typeof document !== 'undefined') {
           flex-wrap: nowrap !important;
           overflow-x: auto !important;
           -webkit-overflow-scrolling: touch;
+        }
+        button[aria-label^="Information about"] {
+          width: 44px !important;
+          height: 44px !important;
+          min-width: 44px !important;
+          min-height: 44px !important;
         }
       }
       /* Dropdown scrollbar styling */

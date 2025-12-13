@@ -24,6 +24,8 @@ import RecentResults from './RecentResults';
 import SaveShareWidget from './SaveShareWidget';
 import FeedbackWidget from './FeedbackWidget';
 import UnifiedVibeSelector from './UnifiedVibeSelector';
+import RecommendationDisplay from './RecommendationDisplay';
+import LocationAutocomplete from './LocationAutocomplete';
 import type { ContextValues } from './ContextToggles';
 
 /**
@@ -279,13 +281,11 @@ export default function FreeDemoWidget() {
             <label style={styles.label} htmlFor="location">
               Location
             </label>
-            <input
+            <LocationAutocomplete
               id="location"
-              type="text"
               value={location}
-              onChange={(e) => setLocation(e.target.value)}
+              onChange={setLocation}
               placeholder="e.g., San Francisco, home, outdoors"
-              style={styles.input}
               disabled={loading}
             />
           </div>
@@ -311,10 +311,16 @@ export default function FreeDemoWidget() {
 
         {result && resultId && (
           <div style={styles.resultBox} id="demo-results" data-result-panel>
-            <h3 style={styles.resultTitle}>Recommendation Result:</h3>
-            <div style={styles.resultScrollContainer}>
-              <pre style={styles.resultContent}>{result}</pre>
-            </div>
+            {/* User-Friendly Recommendation Display */}
+            <RecommendationDisplay
+              resultJson={result}
+              resultId={resultId}
+              userInput={{
+                vibe,
+                time,
+                location,
+              }}
+            />
             
             {/* Developer Mode Toggle (UI only) */}
             <div style={styles.developerModeSection}>

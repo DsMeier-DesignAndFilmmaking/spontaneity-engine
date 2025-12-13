@@ -7,6 +7,7 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import colors from '@/lib/design/colors';
 
 export interface UnifiedVibeSelectorProps {
@@ -66,8 +67,10 @@ export default function UnifiedVibeSelector({
 }: UnifiedVibeSelectorProps) {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [activeTooltipIndex, setActiveTooltipIndex] = useState<number | null>(null);
+  const [tooltipPositions, setTooltipPositions] = useState<Map<number, { top: number; left: number; placement: 'top' | 'bottom' }>>(new Map());
   const dropdownRef = React.useRef<HTMLDivElement>(null);
   const tooltipRefs = React.useRef<(HTMLButtonElement | null)[]>([]);
+  const buttonRefs = React.useRef<(HTMLDivElement | null)[]>([]);
   const tooltipTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
 
   // Detect mobile device
@@ -82,10 +85,97 @@ export default function UnifiedVibeSelector({
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
+  // Calculate tooltip position when active
+  useEffect(() => {
+    if (activeTooltipIndex === null) {
+      setTooltipPositions(new Map());
+      return;
+    }
+
+    const buttonElement = buttonRefs.current[activeTooltipIndex];
+    if (!buttonElement) return;
+
+    const updatePosition = () => {
+      const rect = buttonElement.getBoundingClientRect();
+      
+      // Check if button is visible in viewport (with some tolerance)
+      const isVisible = rect.top < window.innerHeight && rect.bottom > 0 && 
+                       rect.left < window.innerWidth && rect.right > 0;
+      
+      if (!isVisible) {
+        // Hide tooltip if button is out of view
+        setActiveTooltipIndex(null);
+        return;
+      }
+      
+      // Tooltip dimensions (approximate)
+      const tooltipHeight = 100; // Approximate height
+      const tooltipWidth = 280;
+      const spacing = 8;
+      
+      // Check if there's enough space above
+      const spaceAbove = rect.top;
+      const spaceBelow = window.innerHeight - rect.bottom;
+      
+      // Determine placement: prefer top, but use bottom if not enough space
+      const placement: 'top' | 'bottom' = spaceAbove > tooltipHeight + spacing ? 'top' : 'bottom';
+      
+      let top: number;
+      let left: number;
+      
+      // For fixed positioning, use viewport coordinates directly (getBoundingClientRect already provides this)
+      if (placement === 'top') {
+        top = rect.top - tooltipHeight - spacing;
+      } else {
+        top = rect.bottom + spacing;
+      }
+      
+      // Center horizontally on button (center point for translateX(-50%))
+      left = rect.left + (rect.width / 2);
+      
+      // Ensure tooltip doesn't go off-screen horizontally
+      const padding = 16;
+      const halfTooltipWidth = tooltipWidth / 2;
+      if (left - halfTooltipWidth < padding) {
+        left = padding + halfTooltipWidth;
+      } else if (left + halfTooltipWidth > window.innerWidth - padding) {
+        left = window.innerWidth - padding - halfTooltipWidth;
+      }
+      
+      // Ensure tooltip doesn't go off-screen vertically
+      if (top < padding) {
+        top = padding;
+      } else if (top + tooltipHeight > window.innerHeight - padding) {
+        top = window.innerHeight - tooltipHeight - padding;
+      }
+      
+      setTooltipPositions(new Map([[activeTooltipIndex, { top, left, placement }]]));
+    };
+
+    updatePosition();
+    
+    // Update on scroll and resize - use capture phase and passive for better performance
+    const handleScroll = () => {
+      requestAnimationFrame(updatePosition);
+    };
+    
+    window.addEventListener('scroll', handleScroll, { passive: true, capture: true });
+    window.addEventListener('resize', updatePosition, { passive: true });
+    
+    // Also listen to scroll on document and any scrollable containers
+    document.addEventListener('scroll', handleScroll, { passive: true, capture: true });
+    
+    return () => {
+      window.removeEventListener('scroll', handleScroll, { capture: true } as EventListenerOptions);
+      window.removeEventListener('resize', updatePosition);
+      document.removeEventListener('scroll', handleScroll, { capture: true } as EventListenerOptions);
+    };
+  }, [activeTooltipIndex]);
+
   // Close dropdown and tooltips on click outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      const target = event.target as Node;
+      const target = event.target as HTMLElement;
       
       if (dropdownRef.current && !dropdownRef.current.contains(target)) {
         setIsDropdownOpen(false);
@@ -95,7 +185,13 @@ export default function UnifiedVibeSelector({
       const clickedTooltipButton = tooltipRefs.current.some(ref => 
         ref && ref.contains(target)
       );
-      if (!clickedTooltipButton && activeTooltipIndex !== null) {
+      const clickedButtonWrapper = buttonRefs.current.some(ref =>
+        ref && ref.contains(target)
+      );
+      // Check if click is on tooltip itself (portal renders to body)
+      const clickedTooltip = target.closest('[role="tooltip"]');
+      
+      if (!clickedTooltipButton && !clickedButtonWrapper && !clickedTooltip && activeTooltipIndex !== null) {
         setActiveTooltipIndex(null);
       }
     };
@@ -225,6 +321,7 @@ export default function UnifiedVibeSelector({
             return (
               <div
                 key={index}
+                ref={(el) => { buttonRefs.current[index] = el; }}
                 style={styles.presetButtonWrapper}
                 onMouseEnter={() => handleTooltipMouseEnter(index)}
                 onMouseLeave={handleTooltipMouseLeave}
@@ -267,7 +364,8 @@ export default function UnifiedVibeSelector({
                     </svg>
                   </button>
                 )}
-                {showTooltip && (
+                {/* Tooltip rendered via portal to escape stacking contexts */}
+                {showTooltip && typeof document !== 'undefined' && createPortal(
                   <>
                     {isMobile && (
                       <div
@@ -280,6 +378,14 @@ export default function UnifiedVibeSelector({
                       style={{
                         ...styles.tooltip,
                         ...(isMobile ? styles.tooltipMobile : {}),
+                        ...(tooltipPositions.has(index) ? {
+                          position: 'fixed',
+                          top: `${tooltipPositions.get(index)!.top}px`,
+                          left: `${tooltipPositions.get(index)!.left}px`,
+                          transform: 'translateX(-50%)',
+                          bottom: 'auto',
+                          marginBottom: 0,
+                        } : {}),
                       }}
                       role="tooltip"
                       onMouseEnter={() => handleTooltipMouseEnterTooltip(index)}
@@ -287,16 +393,8 @@ export default function UnifiedVibeSelector({
                     >
                       {tooltipText}
                     </div>
-                    {/* Invisible hover area above tooltip to keep it visible */}
-                    {!isMobile && (
-                      <div
-                        style={styles.tooltipHoverArea}
-                        onMouseEnter={() => handleTooltipMouseEnterTooltip(index)}
-                        onMouseLeave={handleTooltipMouseLeave}
-                        aria-hidden="true"
-                      />
-                    )}
-                  </>
+                  </>,
+                  document.body
                 )}
               </div>
             );
@@ -487,12 +585,14 @@ const styles: { [key: string]: React.CSSProperties } = {
   },
   presetsSection: {
     marginBottom: '1.25rem',
+    overflow: 'visible',
   },
   presetsRow: {
     display: 'flex',
     flexWrap: 'wrap',
     gap: '0.5rem',
     overflowX: 'auto',
+    overflowY: 'visible',
     paddingBottom: '0.25rem',
   },
   presetButtonWrapper: {
@@ -547,36 +647,22 @@ const styles: { [key: string]: React.CSSProperties } = {
     color: 'currentColor',
   },
   tooltip: {
-    position: 'absolute',
-    bottom: '100%',
-    left: '50%',
-    transform: 'translateX(-50%)',
-    marginBottom: '0.5rem',
+    position: 'fixed',
     padding: '0.75rem',
     maxWidth: '280px',
     width: 'max-content',
+    minWidth: '200px',
     fontSize: '0.8125rem',
     lineHeight: '1.4',
     color: colors.textPrimary,
     backgroundColor: colors.bgPrimary,
     border: `1px solid ${colors.border}`,
     borderRadius: '0.5rem',
-    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
-    zIndex: 1001,
+    boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+    zIndex: 9999,
     pointerEvents: 'auto',
     whiteSpace: 'normal',
     textAlign: 'left',
-  },
-  tooltipHoverArea: {
-    position: 'absolute',
-    bottom: '100%',
-    left: '50%',
-    transform: 'translateX(-50%)',
-    width: '300px',
-    height: '1rem',
-    marginBottom: '0.25rem',
-    zIndex: 1000,
-    pointerEvents: 'auto',
   },
   tooltipMobile: {
     position: 'fixed',
@@ -596,7 +682,7 @@ const styles: { [key: string]: React.CSSProperties } = {
     right: 0,
     bottom: 0,
     backgroundColor: 'rgba(0, 0, 0, 0.3)',
-    zIndex: 1000,
+    zIndex: 9998,
     pointerEvents: 'auto',
   },
   dropdownSection: {

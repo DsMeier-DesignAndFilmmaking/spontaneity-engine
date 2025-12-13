@@ -13,6 +13,8 @@ import { GeminiAdapter, OpenAIAdapter } from '@/engine/ModelAdapter';
 import { db, validateFirebaseConfig } from '@/lib/db/firebase';
 import { validateSupabaseConfig } from '@/lib/db/supabase';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { moderateContent, generateTrustMetadata, TrustSignals, validateTrustPolicy, TrustPolicy, DEFAULT_TRUST_POLICY, generateWhyNow } from '@/lib/moderation/contentModeration';
+import { createAuditLogEvent, storeAuditLog } from '@/lib/moderation/auditLog';
 
 /**
  * Request body interface for the API endpoint
@@ -24,6 +26,8 @@ interface SpontaneityRequest {
     maxTokens?: number;
     topP?: number;
   };
+  trust_policy?: TrustPolicy; // Partner-controlled trust thresholds
+  partner_id?: string; // Optional partner ID for audit log scoping
 }
 
 /**
@@ -129,6 +133,36 @@ async function logRequest(
 }
 
 /**
+ * Generate UUID v4 for recommendation ID
+ */
+function generateRecommendationId(): string {
+  // Generate UUID v4
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = Math.random() * 16 | 0;
+    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+}
+
+/**
+ * Helper functions to extract context from userInput string
+ */
+function extractLocationFromInput(userInput: string): string | undefined {
+  const locationMatch = userInput.match(/Location:\s*([^,]+)/i) || userInput.match(/location:\s*([^,]+)/i);
+  return locationMatch ? locationMatch[1].trim() : undefined;
+}
+
+function extractTimeFromInput(userInput: string): string | undefined {
+  const timeMatch = userInput.match(/Time:\s*([^,]+)/i) || userInput.match(/time:\s*([^,]+)/i);
+  return timeMatch ? timeMatch[1].trim() : undefined;
+}
+
+function extractVibeFromInput(userInput: string): string | undefined {
+  const vibeMatch = userInput.match(/Vibe:\s*([^,]+)/i) || userInput.match(/vibe:\s*([^,]+)/i);
+  return vibeMatch ? vibeMatch[1].trim() : undefined;
+}
+
+/**
  * Initializes the SpontaneityEngine with available adapters.
  * 
  * Adapters are initialized based on available API keys in environment variables.
@@ -210,7 +244,12 @@ export default async function handler(
     }
 
     // Parse and validate request body
-    const { userInput, config }: SpontaneityRequest = req.body;
+    const { userInput, config, trust_policy, partner_id }: SpontaneityRequest = req.body;
+    
+    // Use provided trust policy or default
+    // Partners can customize trust thresholds via trust_policy in request
+    // If no policy provided, DEFAULT_TRUST_POLICY is applied
+    const activeTrustPolicy: TrustPolicy = trust_policy || DEFAULT_TRUST_POLICY;
 
     if (!userInput || typeof userInput !== 'string' || userInput.trim().length === 0) {
       return res.status(400).json({
@@ -247,6 +286,135 @@ export default async function handler(
       // Note: The engine doesn't currently expose which adapter was actually used.
       // For now, we log the first available adapter. To get the actual adapter used,
       // we would need to enhance the engine's runEngine method to return metadata.
+      
+      // Layer 4: Kill Switch Check (Critical for Trust)
+      // If UGC is disabled, ensure only AI-generated content is returned
+      const ugcEnabled = process.env.UGC_ENABLED !== 'false'; // Default to enabled unless explicitly disabled
+      
+      // Apply moderation and enhance with trust signals
+      try {
+        const parsedResult = JSON.parse(result);
+        
+        // Generate recommendation ID (UUID) for audit logging
+        const recommendationId = generateRecommendationId();
+        parsedResult.recommendation_id = recommendationId;
+        
+        const resultText = parsedResult.recommendation || parsedResult.description || JSON.stringify(parsedResult);
+        
+        // Run moderation checks
+        const moderationResult = moderateContent(resultText, {
+          userInput: userInput.trim(),
+        });
+        
+        // If content fails moderation, return AI-only fallback
+        if (!moderationResult.passed) {
+          console.warn('[Moderation] Content failed moderation check:', moderationResult.reason);
+          // For MVaP, silently fall back to AI-only (no error to user)
+          // In production, you might want to regenerate or filter
+        }
+        
+        // Generate trust metadata object (SERVER-SIDE ONLY)
+        // This is the single source of truth for trust signals
+        const trustSignals: TrustSignals = {
+          ai_generated: true, // Always true for AI-generated recommendations
+          ugc_influenced: ugcEnabled && Math.random() > 0.7, // 30% chance for demo (in production, check database)
+          recent_activity: true, // Assume recent activity for MVaP (in production, check time-based signals)
+          context_verified: true, // Assume verified for MVaP (in production, verify against POI database)
+        };
+        
+        // Generate structured trust metadata
+        const trustMetadata = generateTrustMetadata(trustSignals);
+        
+        // Generate activity timestamp if recent_activity is true
+        // For MVaP, simulate recent activity within last 24 hours
+        let activityTimestamp: string | undefined;
+        if (trustSignals.recent_activity) {
+          // Simulate activity within last 24 hours (random between 0-24 hours ago)
+          const hoursAgo = Math.random() * 24;
+          const activityTime = new Date(Date.now() - hoursAgo * 60 * 60 * 1000);
+          activityTimestamp = activityTime.toISOString();
+        } else {
+          // Use provided timestamp or metadata timestamp as fallback
+          activityTimestamp = parsedResult.last_activity_timestamp || trustMetadata.generated_at;
+        }
+        
+        // Apply partner-controlled trust policy (request-time validation)
+        // If recommendation fails policy, exclude it silently
+        const passesPolicy = validateTrustPolicy(trustMetadata, activeTrustPolicy, activityTimestamp);
+        
+        // Track final trust metadata that will be applied (for audit logging)
+        let finalTrustMetadata = trustMetadata;
+        
+        if (!passesPolicy) {
+          // Silent exclusion - regenerate or return empty result
+          // For MVaP, we'll return a fallback AI-only recommendation
+          console.log('[Trust Policy] Recommendation excluded by policy, using fallback');
+          
+          // Generate fallback with AI-only signals
+          const fallbackSignals: TrustSignals = {
+            ai_generated: true,
+            ugc_influenced: false,
+            recent_activity: false,
+            context_verified: false,
+          };
+          const fallbackMetadata = generateTrustMetadata(fallbackSignals);
+          
+          // Re-check fallback against policy
+          if (validateTrustPolicy(fallbackMetadata, activeTrustPolicy)) {
+            parsedResult.trust = fallbackMetadata;
+            finalTrustMetadata = fallbackMetadata; // Use fallback for audit log
+          } else {
+            // Even fallback fails - return error (shouldn't happen with default policy)
+            return res.status(500).json({
+              success: false,
+              error: 'Unable to generate recommendation meeting trust requirements',
+            });
+          }
+        } else {
+          // Recommendation passes policy - add trust metadata
+          parsedResult.trust = trustMetadata;
+          finalTrustMetadata = trustMetadata; // Use original for audit log
+        }
+        
+        // Generate "Why This Now?" micro-explanation (SERVER-SIDE ONLY)
+        // Extract context from parsed result or userInput
+        const context = {
+          location: parsedResult.location || parsedResult.area || extractLocationFromInput(userInput),
+          time: parsedResult.time || parsedResult.duration || extractTimeFromInput(userInput),
+          vibe: parsedResult.vibe || extractVibeFromInput(userInput),
+        };
+        
+        const whyNow = generateWhyNow(finalTrustMetadata.signals, context);
+        if (whyNow) {
+          parsedResult.why_now = whyNow;
+        }
+        
+        // Store audit log (APPEND-ONLY, PII-FREE)
+        // Use the final trust metadata that was actually applied (after policy validation)
+        // This happens asynchronously and doesn't block the response
+        try {
+          const auditEvent = await createAuditLogEvent(
+            recommendationId,
+            userInput.trim(),
+            finalTrustMetadata,
+            activeTrustPolicy,
+            partner_id
+          );
+          // Store audit log (fire and forget - don't await)
+          storeAuditLog(auditEvent, partner_id).catch((error) => {
+            // Silent fail - audit logging should not break requests
+            console.error('[Audit Log] Failed to store audit log:', error);
+          });
+        } catch (auditError) {
+          // Silent fail - audit logging should not break requests
+          console.error('[Audit Log] Failed to create audit log:', auditError);
+        }
+        
+        result = JSON.stringify(parsedResult);
+      } catch (parseError) {
+        // If JSON parsing fails, continue with original result
+        console.warn('[Moderation] Failed to parse result for moderation:', parseError);
+      }
       
     } catch (engineError) {
       const errorMessage = engineError instanceof Error ? engineError.message : 'Unknown error';

@@ -147,6 +147,8 @@ export default function FreeDemoWidget() {
         : visiblePrompt;
 
       // Use the reusable API function to fetch real AI recommendations
+      let resultData: string; // Declare outside try/catch for use in analytics
+      
       try {
         const userContext = {
           vibe,
@@ -186,7 +188,8 @@ export default function FreeDemoWidget() {
         }
         
         // Set the result (either real or placeholder)
-        setResult(JSON.stringify(recommendationResult, null, 2));
+        resultData = JSON.stringify(recommendationResult, null, 2);
+        setResult(resultData);
       } catch (apiError) {
         // This catch block should rarely execute since the function doesn't throw
         // But we keep it as a safety net
@@ -213,7 +216,7 @@ export default function FreeDemoWidget() {
           }
         };
         
-        const resultData = JSON.stringify(
+        resultData = JSON.stringify(
           {
             result_id: newResultId,
             vibe,

@@ -174,7 +174,12 @@ Return a JSON response with recommended activities and reasoning.`;
       
     } catch (engineError) {
       const errorMessage = engineError instanceof Error ? engineError.message : 'Unknown error';
-      console.error('Engine execution failed:', errorMessage);
+      const errorStack = engineError instanceof Error ? engineError.stack : undefined;
+      console.error('[Demo API] Engine execution failed:', {
+        error: errorMessage,
+        stack: errorStack,
+        userInput: userInput.substring(0, 100), // First 100 chars for debugging
+      });
       
       return res.status(500).json({
         success: false,
@@ -288,7 +293,12 @@ Return a JSON response with recommended activities and reasoning.`;
 
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    console.error('Demo spontaneity API error:', error);
+    const errorStack = error instanceof Error ? error.stack : undefined;
+    console.error('[Demo API] Unexpected error:', {
+      error: errorMessage,
+      stack: errorStack,
+      type: error instanceof Error ? error.constructor.name : typeof error,
+    });
     
     return res.status(500).json({
       success: false,

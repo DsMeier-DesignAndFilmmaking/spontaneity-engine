@@ -371,10 +371,20 @@ export function validateUserContext(userContext: UserContext): {
 } {
   // At minimum, we need some context
   const hasAnyContext = 
-    userContext.vibe?.trim() ||
-    userContext.time?.trim() ||
-    userContext.location?.trim() ||
-    Object.values(userContext).some(v => v && v.trim());
+    (userContext.vibe && typeof userContext.vibe === 'string' && userContext.vibe.trim()) ||
+    (userContext.time && typeof userContext.time === 'string' && userContext.time.trim()) ||
+    (userContext.location && typeof userContext.location === 'string' && userContext.location.trim()) ||
+    (userContext.vibes && Array.isArray(userContext.vibes) && userContext.vibes.length > 0) ||
+    (userContext.timeAvailable && typeof userContext.timeAvailable === 'string' && userContext.timeAvailable.trim()) ||
+    Object.values(userContext).some(v => {
+      if (typeof v === 'string') {
+        return v.trim().length > 0;
+      }
+      if (Array.isArray(v)) {
+        return v.length > 0;
+      }
+      return false;
+    });
   
   if (!hasAnyContext) {
     return {

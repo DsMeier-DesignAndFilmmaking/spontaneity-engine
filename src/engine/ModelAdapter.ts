@@ -174,9 +174,17 @@ Always respond with valid JSON in this exact structure:
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(
-          `OpenAI API error: ${response.status} ${response.statusText}. ${errorData.error?.message || ''}`
-        );
+        const errorMessage = `OpenAI API error: ${response.status} ${response.statusText}. ${errorData.error?.message || ''}`;
+        
+        // Special handling for 429 (rate limit/quota exceeded)
+        if (response.status === 429) {
+          const quotaError = new Error(errorMessage);
+          (quotaError as any).isQuotaExceeded = true;
+          (quotaError as any).statusCode = 429;
+          throw quotaError;
+        }
+        
+        throw new Error(errorMessage);
       }
 
       const data = await response.json();

@@ -19,6 +19,9 @@ export interface RecommendationDisplayProps {
     time?: string;
     location?: string;
   };
+  onRegenerate?: () => void;
+  onAdjustVibes?: () => void;
+  loading?: boolean;
 }
 
 /**
@@ -97,7 +100,14 @@ function parseRecommendation(jsonString: string): {
 /**
  * RecommendationDisplay component
  */
-export default function RecommendationDisplay({ resultJson, resultId, userInput }: RecommendationDisplayProps) {
+export default function RecommendationDisplay({ 
+  resultJson, 
+  resultId, 
+  userInput,
+  onRegenerate,
+  onAdjustVibes,
+  loading = false,
+}: RecommendationDisplayProps) {
   const [showRawJson, setShowRawJson] = useState(false);
   const [showTrustDetails, setShowTrustDetails] = useState(false);
   const [showUGCModal, setShowUGCModal] = useState(false);
@@ -493,21 +503,36 @@ export default function RecommendationDisplay({ resultJson, resultId, userInput 
         </button>
       </div>
 
-      {/* Optional Actions (Visual Only) */}
+      {/* Optional Actions */}
       <div style={styles.actionsSection}>
         <button
           type="button"
-          style={styles.actionButton}
-          disabled
-          aria-label="Regenerate (coming soon)"
+          onClick={onRegenerate}
+          disabled={loading || !onRegenerate}
+          style={{
+            ...styles.actionButton,
+            ...(loading || !onRegenerate ? styles.actionButtonDisabled : styles.actionButtonEnabled),
+          }}
+          aria-label="Regenerate recommendation"
         >
-          Regenerate
+          {loading ? (
+            <>
+              <span style={styles.spinner}>⟳</span>
+              <span>Regenerating...</span>
+            </>
+          ) : (
+            'Regenerate'
+          )}
         </button>
         <button
           type="button"
-          style={styles.actionButton}
-          disabled
-          aria-label="Adjust Vibes (coming soon)"
+          onClick={onAdjustVibes}
+          disabled={loading || !onAdjustVibes}
+          style={{
+            ...styles.actionButton,
+            ...(loading || !onAdjustVibes ? styles.actionButtonDisabled : styles.actionButtonEnabled),
+          }}
+          aria-label="Adjust vibes and preferences"
         >
           Adjust Vibes
         </button>
@@ -823,13 +848,33 @@ const styles: { [key: string]: React.CSSProperties } = {
     padding: '0.625rem 1.25rem',
     fontSize: '0.875rem',
     fontWeight: '600',
-    backgroundColor: colors.bgHover,
-    color: colors.textMuted,
     border: `1px solid ${colors.border}`,
     borderRadius: '0.5rem',
+    transition: 'all 0.2s',
+    outline: 'none',
+    flex: 1,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '0.5rem',
+  },
+  actionButtonEnabled: {
+    backgroundColor: colors.primary,
+    color: '#ffffff',
+    borderColor: colors.primary,
+    cursor: 'pointer',
+    opacity: 1,
+  },
+  actionButtonDisabled: {
+    backgroundColor: colors.bgHover,
+    color: colors.textMuted,
     cursor: 'not-allowed',
     opacity: 0.6,
-    transition: 'all 0.2s',
+  },
+  spinner: {
+    display: 'inline-block',
+    animation: 'spin 1s linear infinite',
+    fontSize: '1rem',
   },
   rawJsonSection: {
     marginTop: '0.5rem',
@@ -879,6 +924,10 @@ if (typeof document !== 'undefined') {
     const style = document.createElement('style');
     style.id = styleId;
     style.textContent = `
+      @keyframes spin {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+      }
       [data-recommendation-display] button[aria-expanded] span:last-child:hover {
         color: ${colors.textPrimary} !important;
       }
@@ -917,6 +966,17 @@ if (typeof document !== 'undefined') {
         color: ${colors.hover} !important;
       }
       [data-recommendation-display] button[aria-label="Suggest something nearby"]:focus {
+        outline: 2px solid ${colors.primary};
+        outline-offset: 2px;
+      }
+      /* Action Buttons hover */
+      [data-recommendation-display] button[aria-label="Regenerate recommendation"]:not(:disabled):hover,
+      [data-recommendation-display] button[aria-label="Adjust vibes and preferences"]:not(:disabled):hover {
+        opacity: 0.9 !important;
+        transform: translateY(-1px);
+      }
+      [data-recommendation-display] button[aria-label="Regenerate recommendation"]:not(:disabled):focus,
+      [data-recommendation-display] button[aria-label="Adjust vibes and preferences"]:not(:disabled):focus {
         outline: 2px solid ${colors.primary};
         outline-offset: 2px;
       }

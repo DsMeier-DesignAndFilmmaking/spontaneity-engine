@@ -18,6 +18,8 @@ export interface SettingsModalProps {
   onPresetSelect: (presetText: string) => void;
   onContextChange: (values: ContextValues) => void;
   currentContextValues: ContextValues;
+  selectedLLMs?: string[];
+  onLLMChange?: (llms: string[]) => void;
   disabled?: boolean;
 }
 
@@ -37,11 +39,47 @@ export default function SettingsModal({
   onPresetSelect,
   onContextChange,
   currentContextValues,
+  selectedLLMs = ['OpenAI'],
+  onLLMChange,
   disabled = false,
 }: SettingsModalProps) {
   const modalRef = useRef<HTMLDivElement>(null);
   const backdropRef = useRef<HTMLDivElement>(null);
   const [isMobile, setIsMobile] = useState(false);
+  
+  // Available LLM models with detailed characteristics
+  const availableLLMs = [
+    { 
+      id: 'OpenAI', 
+      label: 'OpenAI (GPT-3.5/4)', 
+      description: 'Fast, reliable recommendations',
+      characteristics: 'Fast response time, reliable output, cost-effective',
+      speed: 'Fast',
+      creativity: 'High',
+      cost: 'Low-Medium'
+    },
+    { 
+      id: 'Anthropic', 
+      label: 'Anthropic (Claude)', 
+      description: 'Thoughtful, nuanced suggestions',
+      characteristics: 'Thoughtful analysis, nuanced understanding, safety-focused',
+      speed: 'Medium',
+      creativity: 'High',
+      cost: 'Medium'
+    },
+    { 
+      id: 'Gemini', 
+      label: 'Google (Gemini)', 
+      description: 'Creative, diverse options',
+      characteristics: 'Creative outputs, diverse perspectives, multimodal capable',
+      speed: 'Fast',
+      creativity: 'Very High',
+      cost: 'Low'
+    },
+  ];
+  
+  // LLM selection state (local state synced with prop)
+  const [localSelectedLLMs, setLocalSelectedLLMs] = useState<string[]>(selectedLLMs);
   
   // Trust & Safety toggles state (default all ON)
   const [trustSettings, setTrustSettings] = useState({
@@ -58,6 +96,32 @@ export default function SettingsModal({
   
   // Hover states for info tooltips
   const [hoveredInfo, setHoveredInfo] = useState<string | null>(null);
+  
+  // Sync local LLM selection with prop changes
+  useEffect(() => {
+    setLocalSelectedLLMs(selectedLLMs);
+  }, [selectedLLMs]);
+  
+  // Handle LLM selection change
+  const handleLLMChange = (model: string, checked: boolean) => {
+    let newSelection: string[];
+    
+    if (checked) {
+      newSelection = [...localSelectedLLMs, model];
+    } else {
+      newSelection = localSelectedLLMs.filter(m => m !== model);
+    }
+    
+    // Ensure at least one LLM is selected
+    if (newSelection.length === 0) {
+      return;
+    }
+    
+    setLocalSelectedLLMs(newSelection);
+    if (onLLMChange) {
+      onLLMChange(newSelection);
+    }
+  };
 
   // Detect mobile viewport
   useEffect(() => {
@@ -146,6 +210,7 @@ export default function SettingsModal({
         role="dialog"
         aria-modal="true"
         aria-labelledby="settings-modal-title"
+        data-settings-modal
       >
         {/* Header */}
         <div style={styles.header}>
@@ -187,7 +252,91 @@ export default function SettingsModal({
             </div>
           </section>
 
-          {/* SECTION 2: Trust & Safety */}
+          {/* SECTION 2: AI Agent / LLM Selection */}
+          <section style={styles.section}>
+            <div style={styles.sectionHeader}>
+              <h3 style={styles.sectionTitle}>AI Agent / LLM Selection</h3>
+              <div style={styles.sectionDescription}>
+                Choose one or more AI models to generate recommendations. Multiple models can provide diverse perspectives.
+              </div>
+            </div>
+            
+            <div style={{
+              ...styles.llmOptions,
+              maxHeight: isMobile ? '300px' : 'none',
+              overflowY: isMobile ? 'auto' : 'visible',
+              WebkitOverflowScrolling: isMobile ? 'touch' : undefined,
+              paddingRight: isMobile ? '0.5rem' : '0',
+            } as React.CSSProperties}>
+              {availableLLMs.map((llm) => {
+                const isSelected = localSelectedLLMs.includes(llm.id);
+                const infoKey = `llm-${llm.id}`;
+                return (
+                  <div key={llm.id} style={styles.llmOption}>
+                    <label style={styles.llmLabel}>
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={(e) => handleLLMChange(llm.id, e.target.checked)}
+                        disabled={disabled || (isSelected && localSelectedLLMs.length === 1)}
+                        style={styles.checkbox}
+                      />
+                      <div style={styles.llmContent}>
+                        <div style={styles.llmHeader}>
+                          <span style={styles.llmName}>{llm.label}</span>
+                          <button
+                            type="button"
+                            style={styles.infoButton}
+                            onMouseEnter={() => setHoveredInfo(infoKey)}
+                            onMouseLeave={() => setHoveredInfo(null)}
+                            onTouchStart={() => setHoveredInfo(hoveredInfo === infoKey ? null : infoKey)}
+                            aria-label={`Learn more about ${llm.label}`}
+                          >
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={styles.infoIcon}>
+                              <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2"/>
+                              <path d="M12 16V12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                              <circle cx="12" cy="8" r="1" fill="currentColor"/>
+                            </svg>
+                          </button>
+                        </div>
+                        <span style={styles.llmDescription}>{llm.description}</span>
+                        {hoveredInfo === infoKey && (
+                          <div style={styles.llmTooltip}>
+                            <div style={styles.llmTooltipRow}>
+                              <span style={styles.llmTooltipLabel}>Speed:</span>
+                              <span style={styles.llmTooltipValue}>{llm.speed}</span>
+                            </div>
+                            <div style={styles.llmTooltipRow}>
+                              <span style={styles.llmTooltipLabel}>Creativity:</span>
+                              <span style={styles.llmTooltipValue}>{llm.creativity}</span>
+                            </div>
+                            <div style={styles.llmTooltipRow}>
+                              <span style={styles.llmTooltipLabel}>Cost:</span>
+                              <span style={styles.llmTooltipValue}>{llm.cost}</span>
+                            </div>
+                            <div style={styles.llmTooltipDescription}>{llm.characteristics}</div>
+                          </div>
+                        )}
+                      </div>
+                    </label>
+                  </div>
+                );
+              })}
+            </div>
+            
+            {localSelectedLLMs.length > 1 && (
+              <div style={styles.llmNote}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={styles.infoIcon}>
+                  <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2"/>
+                  <path d="M12 16V12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                  <circle cx="12" cy="8" r="1" fill="currentColor"/>
+                </svg>
+                <span>Multiple models will be used in order of preference. If one fails, the next will be tried automatically.</span>
+              </div>
+            )}
+          </section>
+
+          {/* SECTION 3: Trust & Safety */}
           <section style={styles.section}>
             <div style={styles.sectionHeader}>
               <h3 style={styles.sectionTitle}>Trust & Safety</h3>
@@ -360,7 +509,7 @@ export default function SettingsModal({
             </div>
           </section>
 
-          {/* SECTION 4: Transparency & Data */}
+          {/* SECTION 5: Transparency & Data */}
           <section style={{ ...styles.section, borderBottom: 'none' }}>
             <h3 style={styles.sectionTitle}>Transparency & Data</h3>
             <div style={styles.sectionDescription}>
@@ -647,6 +796,94 @@ const styles: { [key: string]: React.CSSProperties } = {
     color: colors.textPrimary,
     flex: 1,
   },
+  llmOptions: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '0.75rem',
+  },
+  llmOption: {
+    display: 'flex',
+    flexDirection: 'column',
+  },
+  llmLabel: {
+    display: 'flex',
+    alignItems: 'flex-start',
+    gap: '0.75rem',
+    cursor: 'pointer',
+    padding: '0.75rem',
+    borderRadius: '8px',
+    transition: 'background-color 0.2s',
+  },
+  llmContent: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '0.25rem',
+    flex: 1,
+    position: 'relative',
+  },
+  llmHeader: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.5rem',
+    justifyContent: 'space-between',
+  },
+  llmName: {
+    fontSize: '0.9375rem',
+    fontWeight: '500',
+    color: colors.textPrimary,
+    flex: 1,
+  },
+  llmDescription: {
+    fontSize: '0.8125rem',
+    color: colors.textSecondary,
+    lineHeight: '1.4',
+  },
+  llmTooltip: {
+    position: 'absolute',
+    top: '100%',
+    left: 0,
+    right: 0,
+    marginTop: '0.5rem',
+    padding: '0.875rem',
+    backgroundColor: colors.bgBase,
+    border: `1px solid ${colors.border}`,
+    borderRadius: '8px',
+    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+    zIndex: 10,
+    fontSize: '0.8125rem',
+  },
+  llmTooltipRow: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: '0.5rem',
+  },
+  llmTooltipLabel: {
+    color: colors.textSecondary,
+    fontWeight: '500',
+  },
+  llmTooltipValue: {
+    color: colors.textPrimary,
+    fontWeight: '600',
+  },
+  llmTooltipDescription: {
+    marginTop: '0.5rem',
+    paddingTop: '0.5rem',
+    borderTop: `1px solid ${colors.border}`,
+    color: colors.textSecondary,
+    fontSize: '0.75rem',
+    lineHeight: '1.5',
+  },
+  llmNote: {
+    display: 'flex',
+    alignItems: 'flex-start',
+    gap: '0.5rem',
+    marginTop: '1rem',
+    padding: '0.875rem',
+    backgroundColor: colors.bgAccent,
+    borderRadius: '8px',
+    border: `1px solid ${colors.border}`,
+  },
   transparencyToggles: {
     display: 'flex',
     flexDirection: 'column',
@@ -714,6 +951,13 @@ if (typeof document !== 'undefined') {
       }
       button[aria-label="Settings"]:hover:not(:disabled) {
         background-color: ${colors.bgHover} !important;
+        color: ${colors.primary} !important;
+      }
+      /* LLM Option hover */
+      [data-settings-modal] label[style*="llmLabel"]:hover {
+        background-color: ${colors.bgHover} !important;
+      }
+      [data-settings-modal] label[style*="llmLabel"] input[type="checkbox"]:checked + div span:first-child {
         color: ${colors.primary} !important;
       }
       button[aria-label="Settings"]:active:not(:disabled) {

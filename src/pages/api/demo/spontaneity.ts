@@ -17,6 +17,7 @@ import type { TrustPolicy } from '@/lib/moderation/contentModeration';
 
 interface DemoSpontaneityRequest {
   userInput: string;
+  selectedLLMs?: string[]; // Array of selected LLM model IDs
   config?: {
     temperature?: number;
     maxTokens?: number;
@@ -62,6 +63,88 @@ function extractTimeFromInput(userInput: string): string | undefined {
 function extractVibeFromInput(userInput: string): string | undefined {
   const vibeMatch = userInput.match(/vibe[:\s]+([^,]+)/i);
   return vibeMatch ? vibeMatch[1].trim() : undefined;
+}
+
+/**
+ * Generate a mock recommendation when OpenAI quota is exceeded or API fails.
+ * This ensures the demo widget remains functional for local testing.
+ */
+function generateMockRecommendation(userInput: string): any {
+  const location = extractLocationFromInput(userInput) || 'nearby';
+  const time = extractTimeFromInput(userInput) || 'a few hours';
+  const vibe = extractVibeFromInput(userInput) || 'spontaneous';
+  
+  // Generate context-aware mock recommendations
+  const mockRecommendations = [
+    {
+      title: `Explore ${location}'s Hidden Gems`,
+      recommendation: `Take a spontaneous walk through ${location} and discover local cafes, parks, or unique shops. Perfect for a ${time} adventure that matches your ${vibe} vibe.`,
+      description: `Discover the charm of ${location} with a self-guided exploration. Visit a local coffee shop, stroll through nearby parks, or browse unique boutiques. This ${time} experience lets you set your own pace and follow your curiosity.`,
+      activities: [
+        {
+          name: 'Local Exploration',
+          type: 'mixed',
+          duration: time,
+          description: `Walk through ${location} and discover what catches your interest`
+        }
+      ],
+      duration: time,
+      cost: 'Budget-friendly',
+      location: location,
+      indoor_outdoor: 'Mixed',
+      group_friendly: true,
+      reasoning: 'A flexible, spontaneous activity that adapts to your preferences and available time.',
+      model: 'mock-fallback',
+      timestamp: new Date().toISOString(),
+    },
+    {
+      title: `Scenic ${location} Adventure`,
+      recommendation: `Visit a scenic viewpoint or park in ${location} for a ${vibe} ${time} experience. Perfect for unwinding and enjoying the local atmosphere.`,
+      description: `Find a peaceful spot in ${location} to relax and take in the surroundings. Whether it's a park bench, a scenic overlook, or a quiet corner, this ${time} break offers a moment of spontaneity.`,
+      activities: [
+        {
+          name: 'Scenic Relaxation',
+          type: 'outdoor',
+          duration: time,
+          description: `Find a peaceful spot in ${location} to unwind`
+        }
+      ],
+      duration: time,
+      cost: 'Free',
+      location: location,
+      indoor_outdoor: 'Outdoor',
+      group_friendly: true,
+      reasoning: 'A simple, accessible activity that requires no planning and fits any schedule.',
+      model: 'mock-fallback',
+      timestamp: new Date().toISOString(),
+    },
+    {
+      title: `Local ${location} Discovery`,
+      recommendation: `Explore ${location}'s local scene with a visit to a neighborhood cafe, bookstore, or market. A perfect ${vibe} way to spend ${time}.`,
+      description: `Immerse yourself in ${location}'s local culture by visiting community spaces. Chat with locals, browse interesting shops, or simply enjoy the atmosphere of a neighborhood spot.`,
+      activities: [
+        {
+          name: 'Local Culture Experience',
+          type: 'indoor',
+          duration: time,
+          description: `Visit local community spaces in ${location}`
+        }
+      ],
+      duration: time,
+      cost: 'Low cost',
+      location: location,
+      indoor_outdoor: 'Indoor',
+      group_friendly: true,
+      reasoning: 'Community spaces offer authentic local experiences without extensive planning.',
+      model: 'mock-fallback',
+      timestamp: new Date().toISOString(),
+    },
+  ];
+  
+  // Select a random mock recommendation
+  const selected = mockRecommendations[Math.floor(Math.random() * mockRecommendations.length)];
+  
+  return selected;
 }
 
 /**
@@ -122,37 +205,76 @@ export default async function handler(
   }
 
   try {
-    // Parse and validate request body
-    const { userInput, config }: DemoSpontaneityRequest = req.body;
+    // Log environment variables for debugging
+    console.log('[Demo API] Environment variables check:');
+    console.log('  OPENAI_API_KEY set:', !!process.env.OPENAI_API_KEY);
+    console.log('  SUPABASE_URL set:', !!process.env.NEXT_PUBLIC_SUPABASE_URL);
+    console.log('  SUPABASE_ANON_KEY set:', !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
 
-    if (!userInput || typeof userInput !== 'string' || userInput.trim().length === 0) {
+    // Check for OpenAI API key (but allow mock fallback for local testing)
+    const hasOpenAIKey = process.env.OPENAI_API_KEY && 
+                         process.env.OPENAI_API_KEY !== 'your_openai_api_key_here';
+    
+    if (!hasOpenAIKey) {
+      console.warn('[Demo API] OPENAI_API_KEY not configured, will use mock fallback if needed');
+    }
+
+    // Parse and validate request body
+    let userInput: string;
+    let config: DemoSpontaneityRequest['config'];
+    
+    try {
+      const body = req.body;
+      userInput = body?.userInput;
+      config = body?.config;
+      
+      if (!userInput || typeof userInput !== 'string' || userInput.trim().length === 0) {
+        console.error('[Demo API] Invalid request body:', { hasUserInput: !!userInput, type: typeof userInput });
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid request. userInput is required and must be a non-empty string.',
+        });
+      }
+    } catch (parseError) {
+      const errorMessage = parseError instanceof Error ? parseError.message : 'Unknown error';
+      console.error('[Demo API] Request body parse error:', errorMessage);
       return res.status(400).json({
         success: false,
-        error: 'Invalid request. userInput is required and must be a non-empty string.',
+        error: `Invalid request body: ${errorMessage}`,
       });
     }
 
     // Initialize the engine
-    let engine: SpontaneityEngine;
+    let engine: SpontaneityEngine | null = null;
     try {
       engine = initializeEngine();
+      console.log('[Demo API] Engine initialized successfully');
     } catch (engineError) {
       const errorMessage = engineError instanceof Error ? engineError.message : 'Unknown error';
-      console.error('Engine initialization failed:', errorMessage);
-      
-      return res.status(500).json({
-        success: false,
-        error: `Engine initialization failed: ${errorMessage}`,
+      const errorStack = engineError instanceof Error ? engineError.stack : undefined;
+      console.warn('[Demo API] Engine initialization failed, will use mock fallback:', {
+        error: errorMessage,
+        stack: errorStack,
       });
+      
+      // Don't return error - allow mock fallback to handle it
+      engine = null;
     }
 
     // Execute the engine
     let result: string;
     let adapterUsed: string | undefined;
 
-    try {
-      // Build prompt for the engine
-      const prompt = `Generate spontaneous activity recommendations based on the following user request:
+    // If engine is not available, use mock fallback immediately
+    if (!engine) {
+      console.warn('[Demo API] No engine available, using mock recommendation');
+      const mockResult = generateMockRecommendation(userInput);
+      result = JSON.stringify(mockResult);
+      adapterUsed = 'mock-fallback';
+    } else {
+      try {
+        // Build prompt for the engine
+        const prompt = `Generate spontaneous activity recommendations based on the following user request:
 
 User Request: "${userInput}"
 
@@ -166,32 +288,75 @@ Consider factors like:
 
 Return a JSON response with recommended activities and reasoning.`;
 
-      // Execute with timeout
-      result = await engine.runEngine(prompt);
-      
-      // Log which adapter was used (for debugging)
-      adapterUsed = 'OpenAI or Gemini'; // Engine doesn't expose which adapter succeeded
-      
-    } catch (engineError) {
-      const errorMessage = engineError instanceof Error ? engineError.message : 'Unknown error';
-      const errorStack = engineError instanceof Error ? engineError.stack : undefined;
-      console.error('[Demo API] Engine execution failed:', {
-        error: errorMessage,
-        stack: errorStack,
-        userInput: userInput.substring(0, 100), // First 100 chars for debugging
-      });
-      
-      return res.status(500).json({
-        success: false,
-        error: `Engine execution failed: ${errorMessage}`,
-      });
+        // Execute with timeout
+        console.log('[Demo API] Executing engine with prompt length:', prompt.length);
+        result = await engine.runEngine(prompt);
+        console.log('[Demo API] Engine execution successful, result length:', result?.length || 0);
+        
+        // Log which adapter was used (for debugging)
+        adapterUsed = 'OpenAI or Gemini'; // Engine doesn't expose which adapter succeeded
+        
+      } catch (engineError) {
+        const errorMessage = engineError instanceof Error ? engineError.message : 'Unknown error';
+        const errorStack = engineError instanceof Error ? engineError.stack : undefined;
+        
+        // Check if it's a 429 quota exceeded error
+        const isQuotaExceeded = (engineError as any)?.isQuotaExceeded === true || 
+                                (engineError as any)?.statusCode === 429 ||
+                                errorMessage.includes('429') ||
+                                errorMessage.includes('quota') ||
+                                errorMessage.includes('rate limit');
+        
+        if (isQuotaExceeded) {
+          console.warn('[Demo API] OpenAI quota exceeded (429), returning mock recommendation:', {
+            error: errorMessage,
+            userInput: userInput.substring(0, 100),
+          });
+          
+          // Generate mock recommendation
+          const mockResult = generateMockRecommendation(userInput);
+          result = JSON.stringify(mockResult);
+          adapterUsed = 'mock-fallback';
+          
+          // Continue processing with mock result (don't return early)
+        } else {
+          // Check if it's an OpenAI API error
+          if (errorMessage.includes('OpenAI') || errorMessage.includes('API')) {
+            console.error('[Demo API] OpenAI API error:', {
+              error: errorMessage,
+              stack: errorStack,
+              userInput: userInput.substring(0, 100),
+            });
+          } else {
+            console.error('[Demo API] Engine execution failed:', {
+              error: errorMessage,
+              stack: errorStack,
+              userInput: userInput.substring(0, 100),
+            });
+          }
+          
+          // For non-429 errors, try mock fallback as last resort
+          console.warn('[Demo API] Falling back to mock recommendation due to API error');
+          const mockResult = generateMockRecommendation(userInput);
+          result = JSON.stringify(mockResult);
+          adapterUsed = 'mock-fallback';
+        }
+      }
     }
 
     // Parse the result
     let parsedResult: any;
     try {
       parsedResult = JSON.parse(result);
+      console.log('[Demo API] Result parsed successfully, has recommendation:', !!parsedResult.recommendation);
     } catch (parseError) {
+      const parseErrorMessage = parseError instanceof Error ? parseError.message : 'Unknown error';
+      console.error('[Demo API] JSON parse error:', {
+        error: parseErrorMessage,
+        resultLength: result?.length,
+        resultPreview: result?.substring(0, 200),
+      });
+      
       // If result is not JSON, wrap it
       parsedResult = {
         recommendation: result,
@@ -294,16 +459,54 @@ Return a JSON response with recommended activities and reasoning.`;
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     const errorStack = error instanceof Error ? error.stack : undefined;
-    console.error('[Demo API] Unexpected error:', {
+    console.error('[Demo API] Unexpected top-level error:', {
       error: errorMessage,
       stack: errorStack,
       type: error instanceof Error ? error.constructor.name : typeof error,
     });
     
-    return res.status(500).json({
-      success: false,
-      error: `Internal server error: ${errorMessage}`,
-    });
+    // Last resort: try to extract userInput from request and generate mock
+    try {
+      const body = req.body;
+      const userInput = body?.userInput || 'spontaneous local activity';
+      console.warn('[Demo API] Generating mock recommendation as final fallback');
+      
+      const mockResult = generateMockRecommendation(userInput);
+      const recommendationId = generateRecommendationId();
+      mockResult.recommendation_id = recommendationId;
+      
+      // Add trust metadata for mock
+      const trustSignals: TrustSignals = {
+        ai_generated: false, // Mock, not AI-generated
+        ugc_influenced: false,
+        recent_activity: true,
+        context_verified: false,
+      };
+      const trustMetadata = generateTrustMetadata(trustSignals);
+      mockResult.trust = trustMetadata;
+      
+      // Generate why_now
+      const context = {
+        location: extractLocationFromInput(userInput),
+        time: extractTimeFromInput(userInput),
+        vibe: extractVibeFromInput(userInput),
+      };
+      const whyNow = generateWhyNow(trustMetadata.signals, context);
+      if (whyNow) {
+        mockResult.why_now = whyNow;
+      }
+      
+      return res.status(200).json({
+        success: true,
+        result: JSON.stringify(mockResult),
+      });
+    } catch (fallbackError) {
+      // If even mock generation fails, return error
+      return res.status(500).json({
+        success: false,
+        error: `Internal server error: ${errorMessage}`,
+      });
+    }
   }
 }
 

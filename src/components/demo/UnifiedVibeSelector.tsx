@@ -300,10 +300,17 @@ export default function UnifiedVibeSelector({
   };
 
   // Clear all selected vibes
-  const handleClearAll = (e: React.MouseEvent) => {
-    e.stopPropagation(); // Prevent dropdown toggle
+  const handleClearAll = (e?: React.MouseEvent) => {
+    if (e) {
+      e.stopPropagation(); // Prevent dropdown toggle
+    }
     if (disabled) return;
     onChange('');
+  };
+  
+  const handleClearAllClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    handleClearAll(e);
   };
 
 
@@ -434,11 +441,22 @@ export default function UnifiedVibeSelector({
             </span>
             <div style={styles.dropdownIcons}>
               {selectedVibes.length > 0 && (
-                <button
-                  type="button"
-                  onClick={handleClearAll}
-                  disabled={disabled}
-                  style={styles.clearButton}
+                <div
+                  role="button"
+                  tabIndex={0}
+                  onClick={handleClearAllClick}
+                  onKeyDown={(e) => {
+                    if ((e.key === 'Enter' || e.key === ' ') && !disabled) {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      handleClearAll();
+                    }
+                  }}
+                  style={{
+                    ...styles.clearButton,
+                    ...(disabled ? styles.buttonDisabled : {}),
+                    cursor: disabled ? 'not-allowed' : 'pointer',
+                  }}
                   aria-label="Clear all selected vibes"
                   title="Clear all"
                 >
@@ -459,7 +477,7 @@ export default function UnifiedVibeSelector({
                       strokeLinejoin="round"
                     />
                   </svg>
-                </button>
+                </div>
               )}
               <svg
                 width="20"

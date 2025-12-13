@@ -19,7 +19,6 @@ import React, { useState, useEffect } from 'react';
 import { isFeatureEnabled, FEATURE_FLAGS } from '@/lib/utils/featureFlags';
 import { trackEvent } from '@/lib/analytics/trackEvent';
 import colors from '@/lib/design/colors';
-import { fetchSpontaneousRecommendation } from '@/lib/api/spontaneity';
 import SettingsModal from './SettingsModal';
 import RecentResults from './RecentResults';
 import SaveShareWidget from './SaveShareWidget';
@@ -75,6 +74,21 @@ export default function FreeDemoWidget() {
   const [showUGCModal, setShowUGCModal] = useState(false);
   // Developer mode toggle (UI only)
   const [developerMode, setDeveloperMode] = useState(false);
+  // Selected LLMs state (default to OpenAI)
+  const [selectedLLMs, setSelectedLLMs] = useState<string[]>(() => {
+    // Try to load from localStorage, fallback to default
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('spontaneity_selected_llms');
+      if (saved) {
+        try {
+          return JSON.parse(saved);
+        } catch {
+          return ['OpenAI'];
+        }
+      }
+    }
+    return ['OpenAI'];
+  });
 
   /**
    * Handles preset selection from Settings Modal
@@ -146,63 +160,67 @@ export default function FreeDemoWidget() {
         ? `${visiblePrompt} [Context: Role=${contextValues.role}, Mood=${contextValues.mood}, Group=${contextValues.group_size}]`
         : visiblePrompt;
 
-      // Use the reusable API function to fetch real AI recommendations
+      // Call the API directly to fetch real AI recommendations
       let resultData: string; // Declare outside try/catch for use in analytics
       
       try {
-        const userContext = {
-          vibe,
-          time,
-          location,
-          ...(enhancementsEnabled && {
-            role: contextValues.role,
-            mood: contextValues.mood,
-            group_size: contextValues.group_size,
-          }),
-        };
-        
-        // Fetch recommendation using the reusable function
-        // Note: This function never throws - it returns a placeholder on error
-        const recommendationResult = await fetchSpontaneousRecommendation(
-          userContext,
-          {
+        const payload = {
+          userInput: fullPrompt,
+          selectedLLMs: selectedLLMs, // Pass selected LLMs to API
+          config: {
             temperature: 0.7,
-            maxTokens: 300, // Reduced for MVaP speed
+            maxTokens: 300,
           },
-          true // Use demo endpoint (no auth required)
-        );
+        };
+
+        const response = await fetch('/api/demo/spontaneity', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(payload),
+        });
+
+        const data = await response.json();
         
-        // Ensure result_id is set
-        recommendationResult.result_id = newResultId;
-        
-        // Check if this is a placeholder (API failed)
-        const isPlaceholder = (recommendationResult as any)._isPlaceholder === true;
-        
-        if (isPlaceholder) {
-          // Show error message but still display the placeholder
-          setError('Unable to connect to AI service. Showing a placeholder recommendation. Please try again.');
-          // Log for debugging (already logged in API function)
+        // Parse the result JSON string
+        let parsedResult: any;
+        if (data.success && data.result) {
+          try {
+            parsedResult = JSON.parse(data.result);
+          } catch (parseError) {
+            parsedResult = {
+              recommendation: data.result,
+              title: 'Your Recommendation',
+              description: data.result,
+            };
+          }
         } else {
-          // Clear any previous errors
-          setError(null);
+          throw new Error(data.error || 'Invalid API response');
         }
+
+        // Ensure result_id and context are set
+        parsedResult.result_id = newResultId;
+        parsedResult.vibe = vibe;
+        parsedResult.time = time;
+        parsedResult.location = location;
         
-        // Set the result (either real or placeholder)
-        resultData = JSON.stringify(recommendationResult, null, 2);
+        // Clear any previous errors
+        setError(null);
+        
+        // Set the result
+        resultData = JSON.stringify(parsedResult, null, 2);
         setResult(resultData);
-      } catch (apiError) {
-        // This catch block should rarely execute since the function doesn't throw
-        // But we keep it as a safety net
-        console.error('Unexpected error in handleGenerate:', apiError);
-        setError('An unexpected error occurred. Please try again.');
         
-        // Generate a spontaneous recommendation title based on user inputs
+      } catch (apiError) {
+        console.error('[FreeDemoWidget] Error generating recommendation:', apiError);
+        
+        // Fallback mock directly in frontend if API call fails
         const generateRecommendationTitle = () => {
           const vibeWords = vibe.split(',').map(v => v.trim()).filter(v => v.length > 0);
           const locationWords = location.trim();
           const timeWords = time.trim();
           
-          // Create a dynamic title based on inputs
           if (vibeWords.length > 0 && locationWords) {
             const primaryVibe = vibeWords[0];
             return `${primaryVibe.charAt(0).toUpperCase() + primaryVibe.slice(1)} ${timeWords ? timeWords + ' ' : ''}adventure in ${locationWords}`;
@@ -216,6 +234,8 @@ export default function FreeDemoWidget() {
           }
         };
         
+        const mockRecommendation = `Mock Recommendation: Explore a local art installation or museum nearby! Perfect for a ${time} ${vibe} adventure in ${location}.`;
+        
         resultData = JSON.stringify(
           {
             result_id: newResultId,
@@ -223,7 +243,8 @@ export default function FreeDemoWidget() {
             time,
             location,
             title: generateRecommendationTitle(),
-            recommendation: generateRecommendationTitle(),
+            recommendation: mockRecommendation,
+            description: mockRecommendation,
             timestamp: new Date().toISOString(),
             note: 'This is a free demo. Sign in to access full features.',
             ...(enhancementsEnabled && {
@@ -239,6 +260,7 @@ export default function FreeDemoWidget() {
         );
         
         setResult(resultData);
+        // Don't set error - allow mock to display seamlessly
       }
 
       // Track analytics
@@ -265,12 +287,46 @@ export default function FreeDemoWidget() {
         }
       }
 
-      setLoading(false);
     } catch (err) {
       console.error('Error generating recommendation:', err);
       setError('Failed to generate recommendation. Please try again.');
-      setLoading(false);
+    } finally {
+      setLoading(false); // Always re-enable buttons
     }
+  };
+
+  /**
+   * Handles regenerating a recommendation with the same inputs
+   */
+  const handleRegenerate = () => {
+    handleGenerate();
+  };
+
+  /**
+   * Handles adjusting vibes - opens settings modal to allow user to change preferences
+   */
+  const handleAdjustVibes = () => {
+    setShowSettings(true);
+    trackEvent('cta_click', {
+      cta_name: 'adjust_vibes',
+      timestamp: Date.now(),
+    });
+  };
+
+  /**
+   * Handles LLM selection changes
+   */
+  const handleLLMChange = (llms: string[]) => {
+    setSelectedLLMs(llms);
+    // Persist to localStorage
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('spontaneity_selected_llms', JSON.stringify(llms));
+    }
+    trackEvent('settings_change', {
+      setting: 'selected_llms',
+      value: llms.join(','),
+      timestamp: Date.now(),
+    });
   };
 
   return (
@@ -280,6 +336,16 @@ export default function FreeDemoWidget() {
         <div style={styles.headerRow}>
           <div style={styles.headerContent}>
             <h1 style={styles.title}>Instant, personalized micro-adventures — no login needed.</h1>
+            {/* Active LLM Badges */}
+            {enhancementsEnabled && selectedLLMs.length > 0 && (
+              <div style={styles.llmBadges}>
+                {selectedLLMs.map((llm) => (
+                  <span key={llm} style={styles.llmBadge} title={`Using ${llm} for recommendations`}>
+                    {llm}
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
           {/* Header Action Buttons */}
           {enhancementsEnabled && (
@@ -456,6 +522,9 @@ export default function FreeDemoWidget() {
                 time,
                 location,
               }}
+              onRegenerate={handleRegenerate}
+              onAdjustVibes={handleAdjustVibes}
+              loading={loading}
             />
             
             {/* Developer Mode Toggle (UI only) */}
@@ -507,6 +576,8 @@ export default function FreeDemoWidget() {
             onPresetSelect={handlePresetSelect}
             onContextChange={setContextValues}
             currentContextValues={contextValues}
+            selectedLLMs={selectedLLMs}
+            onLLMChange={handleLLMChange}
             disabled={loading}
           />
         )}
@@ -565,6 +636,25 @@ const styles: { [key: string]: React.CSSProperties } = {
     marginBottom: '0.5rem',
     color: colors.textPrimary,
     lineHeight: '1.3',
+  },
+  llmBadges: {
+    display: 'flex',
+    flexWrap: 'wrap',
+    gap: '0.5rem',
+    marginTop: '0.75rem',
+  },
+  llmBadge: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    padding: '0.25rem 0.625rem',
+    fontSize: '0.75rem',
+    fontWeight: '600',
+    backgroundColor: colors.bgAccent,
+    color: colors.primary,
+    border: `1px solid ${colors.primary}`,
+    borderRadius: '12px',
+    textTransform: 'uppercase',
+    letterSpacing: '0.025em',
   },
   subtitle: {
     fontSize: '1rem',

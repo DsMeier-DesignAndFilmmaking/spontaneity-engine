@@ -184,15 +184,68 @@ export default function RecommendationDisplay({ resultJson, resultId, userInput 
 
   // Extract "What You'll Do" content
   const getActivityDescription = () => {
+    // If we have real activity data, use it
     if (data.activities && data.activities.length > 0) {
       return data.activities.map(activity => 
         activity.description || activity.name || ''
       ).filter(Boolean).join(' ');
     }
-    if (data.recommendation) {
+    
+    // If recommendation exists and is not the demo placeholder, use it
+    if (data.recommendation && !data.recommendation.includes('Free demo mode')) {
       return data.recommendation;
     }
-    return 'Explore a curated experience based on your selected preferences.';
+    
+    // Generate realistic spontaneous adventure copy based on user inputs
+    const generateSpontaneousDescription = () => {
+      const vibeWords = userInput?.vibe ? userInput.vibe.split(',').map(v => v.trim()).filter(v => v.length > 0) : [];
+      const location = userInput?.location || data.location || 'nearby';
+      const time = userInput?.time || data.duration || '';
+      
+      // Build description based on vibe
+      let description = '';
+      
+      if (vibeWords.length > 0) {
+        const primaryVibe = vibeWords[0].toLowerCase();
+        
+        // Vibe-specific descriptions
+        if (primaryVibe.includes('adventur') || primaryVibe.includes('active')) {
+          description = `Discover hidden gems and local spots in ${location} that most visitors miss. `;
+          description += time ? `Perfect for a ${time} exploration, ` : '';
+          description += `you'll uncover unique experiences that match your adventurous spirit—from secret viewpoints to off-the-beaten-path local favorites.`;
+        } else if (primaryVibe.includes('relax') || primaryVibe.includes('chill')) {
+          description = `Find your perfect peaceful moment in ${location}. `;
+          description += time ? `In just ${time}, ` : '';
+          description += `you can unwind at serene spots that offer a break from the usual hustle—think quiet parks, cozy cafes, or scenic spots perfect for slowing down.`;
+        } else if (primaryVibe.includes('creativ') || primaryVibe.includes('art')) {
+          description = `Tap into ${location}'s creative pulse. `;
+          description += time ? `With ${time} to spare, ` : '';
+          description += `explore local art scenes, maker spaces, or cultural corners where inspiration flows—whether it's street art, galleries, or hands-on creative experiences.`;
+        } else if (primaryVibe.includes('food') || primaryVibe.includes('culinary')) {
+          description = `Taste your way through ${location}'s local flavor. `;
+          description += time ? `In ${time}, ` : '';
+          description += `you can discover authentic eats, hidden food spots, or unique culinary experiences that locals love—from food markets to neighborhood gems.`;
+        } else if (primaryVibe.includes('social') || primaryVibe.includes('group')) {
+          description = `Connect with ${location}'s vibrant social scene. `;
+          description += time ? `Perfect for ${time} of fun, ` : '';
+          description += `you'll find spots where people gather, share experiences, and create memories—whether it's lively markets, community events, or social spaces.`;
+        } else {
+          // Generic but engaging description
+          description = `Experience ${location} through a fresh lens. `;
+          description += time ? `In ${time}, ` : '';
+          description += `you'll discover something unexpected that matches your ${primaryVibe} vibe—local spots, unique experiences, or hidden corners waiting to be explored.`;
+        }
+      } else {
+        // No vibe specified - create a general spontaneous description
+        description = `Spontaneously explore ${location} and discover something unexpected. `;
+        description += time ? `With ${time} available, ` : '';
+        description += `you'll find local experiences, hidden spots, or unique moments that make for an unforgettable micro-adventure.`;
+      }
+      
+      return description;
+    };
+    
+    return generateSpontaneousDescription();
   };
 
   // Extract "Why This Fits You" bullets

@@ -5,7 +5,7 @@
  * MVaP-safe: No social mechanics, no profiles, no public moderation UI.
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import colors from '@/lib/design/colors';
 
@@ -28,6 +28,20 @@ export default function UGCSubmissionModal({
   const [timing, setTiming] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showToast, setShowToast] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+
+  // Detect mobile viewport
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(typeof window !== 'undefined' && window.innerWidth < 640);
+    };
+    
+    checkMobile();
+    if (typeof window !== 'undefined') {
+      window.addEventListener('resize', checkMobile);
+      return () => window.removeEventListener('resize', checkMobile);
+    }
+  }, []);
 
   if (!isOpen) return null;
 
@@ -85,17 +99,28 @@ export default function UGCSubmissionModal({
     }
   };
 
+  // Combine modal styles with mobile-specific adjustments
+  const modalStyles: React.CSSProperties = {
+    ...styles.modal,
+    ...(isMobile ? styles.modalMobile : {}),
+  };
+
+  const backdropStyles: React.CSSProperties = {
+    ...styles.backdrop,
+    ...(isMobile ? styles.backdropMobile : {}),
+  };
+
   const modalContent = (
     <>
       {/* Backdrop */}
       <div
-        style={styles.backdrop}
+        style={backdropStyles}
         onClick={handleBackdropClick}
         aria-hidden="true"
       />
       
       {/* Modal */}
-      <div style={styles.modal} role="dialog" aria-labelledby="ugc-modal-title">
+      <div style={modalStyles} role="dialog" aria-labelledby="ugc-modal-title">
         <div style={styles.modalHeader}>
           <h2 id="ugc-modal-title" style={styles.modalTitle}>
             Suggest something nearby
@@ -224,24 +249,34 @@ const styles: { [key: string]: React.CSSProperties } = {
     bottom: 0,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     zIndex: 9998,
-    display: 'flex',
-    alignItems: 'flex-end',
-    justifyContent: 'center',
+  },
+  backdropMobile: {
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
   },
   modal: {
     position: 'fixed',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    maxHeight: '90vh',
+    top: '50%',
+    left: '50%',
+    transform: 'translate(-50%, -50%)',
     backgroundColor: colors.bgPrimary,
-    borderTopLeftRadius: '1rem',
-    borderTopRightRadius: '1rem',
-    boxShadow: '0 -4px 6px -1px rgba(0, 0, 0, 0.1)',
+    borderRadius: '12px',
+    boxShadow: '0 10px 40px rgba(0, 0, 0, 0.2)',
     zIndex: 9999,
+    maxWidth: '540px', // Match Settings modal width
+    width: '90%',
+    maxHeight: '90vh',
     display: 'flex',
     flexDirection: 'column',
     overflow: 'hidden',
+  },
+  modalMobile: {
+    width: '100%',
+    maxHeight: '90vh',
+    borderRadius: '16px 16px 0 0',
+    top: 'auto',
+    bottom: 0,
+    left: 0,
+    transform: 'none',
   },
   modalHeader: {
     display: 'flex',

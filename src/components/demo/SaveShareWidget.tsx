@@ -6,8 +6,9 @@
  * Creates short-lived result objects (24-hour expiration).
  */
 
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { trackEvent } from '@/lib/analytics/trackEvent';
+import colors from '@/lib/design/colors';
 
 export interface SaveShareWidgetProps {
   resultId: string;
@@ -27,10 +28,26 @@ export interface SaveShareWidgetProps {
  */
 export default function SaveShareWidget({ resultId, resultData, disabled = false }: SaveShareWidgetProps) {
   const [showEmailModal, setShowEmailModal] = useState(false);
+  const [showShareMenu, setShowShareMenu] = useState(false);
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [copySuccess, setCopySuccess] = useState(false);
   const [savedUrl, setSavedUrl] = useState<string | null>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  // Close menu on click outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setShowShareMenu(false);
+      }
+    };
+
+    if (showShareMenu) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [showShareMenu]);
 
   /**
    * Save result and generate share URL
@@ -77,33 +94,83 @@ export default function SaveShareWidget({ resultId, resultData, disabled = false
    * Copy share link to clipboard
    */
   const handleCopyLink = async () => {
+    let urlToUse = savedUrl;
+    
+    // If not saved yet, save first
     if (!savedUrl) {
-      // Save first if not already saved
-      await handleSave();
-      // Wait a moment for URL to be set
-      await new Promise(resolve => setTimeout(resolve, 300));
-      if (!savedUrl) return;
+      try {
+        setLoading(true);
+        const response = await fetch('/api/save-result', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            result_id: resultId,
+            result_data: resultData,
+          }),
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          urlToUse = data.url;
+          setSavedUrl(data.url);
+        }
+      } catch (error) {
+        console.error('Error saving result:', error);
+      } finally {
+        setLoading(false);
+      }
     }
 
     try {
-      const fullUrl = typeof window !== 'undefined' 
-        ? `${window.location.origin}${savedUrl}`
-        : savedUrl;
+      const fullUrl = typeof window !== 'undefined' && urlToUse
+        ? `${window.location.origin}${urlToUse}`
+        : typeof window !== 'undefined' 
+          ? window.location.href 
+          : '';
       
-      await navigator.clipboard.writeText(fullUrl);
-      setCopySuccess(true);
-      
-      // Track analytics
-      trackEvent('result_save_attempt', {
-        result_id: resultId,
-        save_method: 'copy_link',
-        timestamp: Date.now(),
-      });
-      
-      setTimeout(() => setCopySuccess(false), 2000);
+      if (fullUrl) {
+        await navigator.clipboard.writeText(fullUrl);
+        setCopySuccess(true);
+        setShowShareMenu(false);
+        
+        // Track analytics
+        trackEvent('result_save_attempt', {
+          result_id: resultId,
+          save_method: 'copy_link',
+          timestamp: Date.now(),
+        });
+        
+        setTimeout(() => setCopySuccess(false), 2000);
+      }
     } catch (error) {
       console.error('Error copying link:', error);
     }
+  };
+
+  /**
+   * Handle share button click - save if needed, then show menu
+   */
+  const handleShareClick = async () => {
+    if (disabled || loading) return;
+    
+    // If not saved yet, save first
+    if (!savedUrl) {
+      await handleSave();
+      // Wait a moment for URL to be set
+      await new Promise(resolve => setTimeout(resolve, 300));
+    }
+    
+    setShowShareMenu(!showShareMenu);
+  };
+
+  /**
+   * Handle email option click
+   */
+  const handleEmailClick = () => {
+    setShowShareMenu(false);
+    setShowEmailModal(true);
   };
 
   /**
@@ -162,40 +229,115 @@ export default function SaveShareWidget({ resultId, resultData, disabled = false
 
   return (
     <>
-      <div style={styles.container}>
-        <button
-          type="button"
-          onClick={handleSave}
-          disabled={disabled || loading}
-          style={{
-            ...styles.saveButton,
-            ...(disabled || loading ? styles.buttonDisabled : {}),
-          }}
-          aria-label="Save or email this plan"
-        >
-          {loading ? 'Saving...' : 'Save or Email this plan'}
-        </button>
-        
-        {savedUrl && (
-          <div style={styles.shareOptions}>
-            <button
-              type="button"
-              onClick={handleCopyLink}
-              style={styles.linkButton}
-              aria-label="Copy link"
+      <div style={styles.container} ref={menuRef}>
+        <div style={styles.shareButtonGroup}>
+          <button
+            type="button"
+            onClick={handleShareClick}
+            disabled={disabled || loading}
+            style={{
+              ...styles.shareButton,
+              ...(disabled || loading ? styles.buttonDisabled : {}),
+            }}
+            aria-label="Share this plan"
+            aria-expanded={showShareMenu}
+          >
+            {copySuccess ? '✓ Copied!' : loading ? 'Saving...' : 'Share'}
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+              style={{
+                ...styles.shareIcon,
+                transform: showShareMenu ? 'rotate(180deg)' : 'rotate(0deg)',
+                transition: 'transform 0.2s',
+              }}
             >
-              {copySuccess ? '✓ Copied!' : 'Copy Link'}
-            </button>
-            <button
-              type="button"
-              onClick={() => setShowEmailModal(true)}
-              style={styles.emailButton}
-              aria-label="Email me this result"
-            >
-              Email me
-            </button>
-          </div>
-        )}
+              <path
+                d="M6 9L12 15L18 9"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </button>
+          
+          {showShareMenu && (
+            <div style={styles.shareMenu}>
+              <button
+                type="button"
+                onClick={handleCopyLink}
+                style={{
+                  ...styles.menuItem,
+                  borderBottom: `1px solid ${colors.bgHover}`,
+                }}
+                aria-label="Copy link"
+              >
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                  style={styles.menuIcon}
+                >
+                  <path
+                    d="M10 13C10.4295 13.5741 10.9774 14.0491 11.6066 14.3929C12.2357 14.7367 12.9315 14.9411 13.6466 14.9923C14.3618 15.0435 15.0796 14.9403 15.7513 14.6897C16.4231 14.4392 17.0331 14.047 17.54 13.54L20.54 10.54C21.4508 9.59695 21.9548 8.33394 21.9434 7.02296C21.932 5.71198 21.4061 4.45791 20.4791 3.53087C19.5521 2.60383 18.298 2.07799 16.987 2.0666C15.676 2.0552 14.413 2.55918 13.47 3.47L11.75 5.18"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                  <path
+                    d="M14 11C13.5705 10.4259 13.0226 9.95087 12.3934 9.60707C11.7643 9.26327 11.0685 9.05886 10.3534 9.00766C9.63821 8.95645 8.92041 9.05972 8.24866 9.31028C7.57691 9.56083 6.96688 9.95304 6.46 10.46L3.46 13.46C2.54918 14.403 2.04519 15.6661 2.05659 16.977C2.06798 18.288 2.59382 19.5421 3.52086 20.4691C4.44791 21.3962 5.70198 21.922 7.01296 21.9334C8.32394 21.9448 9.58695 21.4408 10.53 20.53L12.24 18.82"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+                Copy Link
+              </button>
+              <button
+                type="button"
+                onClick={handleEmailClick}
+                style={{
+                  ...styles.menuItem,
+                  borderBottom: 'none',
+                }}
+                aria-label="Email this result"
+              >
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                  style={styles.menuIcon}
+                >
+                  <path
+                    d="M4 4H20C21.1 4 22 4.9 22 6V18C22 19.1 21.1 20 20 20H4C2.9 20 2 19.1 2 18V6C2 4.9 2.9 4 4 4Z"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                  <path
+                    d="M22 6L12 13L2 6"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+                Email
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Email Modal */}
@@ -248,47 +390,69 @@ const styles: { [key: string]: React.CSSProperties } = {
   container: {
     marginTop: '1rem',
     marginBottom: '1rem',
+    position: 'relative',
   },
-  saveButton: {
+  shareButtonGroup: {
+    position: 'relative',
+    display: 'inline-block',
+  },
+  shareButton: {
     padding: '0.75rem 1.5rem',
     fontSize: '0.875rem',
     fontWeight: '600',
-    backgroundColor: '#667eea',
-    color: '#ffffff',
+    backgroundColor: colors.primary,
+    color: colors.textInverse,
     border: 'none',
     borderRadius: '6px',
     cursor: 'pointer',
     transition: 'all 0.2s',
     outline: 'none',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.5rem',
+  },
+  shareIcon: {
+    width: '16px',
+    height: '16px',
+    flexShrink: 0,
   },
   buttonDisabled: {
     opacity: 0.6,
     cursor: 'not-allowed',
   },
-  shareOptions: {
+  shareMenu: {
+    position: 'absolute',
+    top: '100%',
+    left: 0,
+    marginTop: '0.5rem',
+    backgroundColor: colors.bgPrimary,
+    border: `1px solid ${colors.border}`,
+    borderRadius: '8px',
+    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+    zIndex: 100,
+    minWidth: '160px',
+    overflow: 'hidden',
+  },
+  menuItem: {
+    width: '100%',
+    padding: '0.75rem 1rem',
+    fontSize: '0.875rem',
+    backgroundColor: 'transparent',
+    color: colors.textPrimary,
+    border: 'none',
+    cursor: 'pointer',
+    outline: 'none',
     display: 'flex',
-    gap: '0.5rem',
-    marginTop: '0.75rem',
+    alignItems: 'center',
+    gap: '0.75rem',
+    textAlign: 'left',
+    transition: 'background-color 0.15s',
   },
-  linkButton: {
-    padding: '0.5rem 1rem',
-    fontSize: '0.875rem',
-    backgroundColor: '#f5f5f5',
-    color: '#333',
-    border: '1px solid #e0e0e0',
-    borderRadius: '6px',
-    cursor: 'pointer',
-    outline: 'none',
-  },
-  emailButton: {
-    padding: '0.5rem 1rem',
-    fontSize: '0.875rem',
-    backgroundColor: '#f5f5f5',
-    color: '#333',
-    border: '1px solid #e0e0e0',
-    borderRadius: '6px',
-    cursor: 'pointer',
-    outline: 'none',
+  menuIcon: {
+    width: '16px',
+    height: '16px',
+    flexShrink: 0,
+    color: colors.textSecondary,
   },
   modalOverlay: {
     position: 'fixed',
@@ -303,7 +467,7 @@ const styles: { [key: string]: React.CSSProperties } = {
     zIndex: 1000,
   },
   modalContent: {
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.bgPrimary,
     borderRadius: '12px',
     padding: '2rem',
     maxWidth: '400px',
@@ -314,25 +478,27 @@ const styles: { [key: string]: React.CSSProperties } = {
     fontSize: '1.25rem',
     fontWeight: 'bold',
     marginBottom: '0.5rem',
-    color: '#1a1a1a',
+    color: colors.textPrimary,
   },
   modalDescription: {
     fontSize: '0.875rem',
-    color: '#666',
+    color: colors.textSecondary,
     marginBottom: '1rem',
   },
   emailInput: {
     width: '100%',
     padding: '0.75rem',
     fontSize: '1rem',
-    border: '2px solid #e0e0e0',
+    border: `2px solid ${colors.border}`,
     borderRadius: '6px',
     outline: 'none',
     marginBottom: '0.5rem',
+    backgroundColor: colors.bgPrimary,
+    color: colors.textPrimary,
   },
   privacyNote: {
     fontSize: '0.75rem',
-    color: '#999',
+    color: colors.textMuted,
     marginBottom: '1.5rem',
     lineHeight: '1.4',
   },
@@ -345,8 +511,8 @@ const styles: { [key: string]: React.CSSProperties } = {
     padding: '0.75rem 1.5rem',
     fontSize: '0.875rem',
     fontWeight: '600',
-    backgroundColor: '#667eea',
-    color: '#ffffff',
+    backgroundColor: colors.primary,
+    color: colors.textInverse,
     border: 'none',
     borderRadius: '6px',
     cursor: 'pointer',
@@ -355,12 +521,48 @@ const styles: { [key: string]: React.CSSProperties } = {
   modalCancelButton: {
     padding: '0.75rem 1.5rem',
     fontSize: '0.875rem',
-    backgroundColor: '#f5f5f5',
-    color: '#333',
-    border: '1px solid #e0e0e0',
+    backgroundColor: colors.bgHover,
+    color: colors.textPrimary,
+    border: `1px solid ${colors.border}`,
     borderRadius: '6px',
     cursor: 'pointer',
     outline: 'none',
   },
 };
+
+// Add hover effects
+if (typeof document !== 'undefined') {
+  const styleId = 'save-share-widget-styles';
+  if (!document.getElementById(styleId)) {
+    const style = document.createElement('style');
+    style.id = styleId;
+    style.textContent = `
+      button[aria-label="Share this plan"]:hover:not(:disabled) {
+        background-color: ${colors.hover} !important;
+      }
+      button[aria-label="Share this plan"]:focus {
+        box-shadow: 0 0 0 3px rgba(15, 82, 186, 0.2) !important;
+      }
+      button[aria-label="Copy link"]:hover,
+      button[aria-label="Email this result"]:hover {
+        background-color: ${colors.bgHover} !important;
+      }
+      button[aria-label="Copy link"]:focus,
+      button[aria-label="Email this result"]:focus {
+        outline: 2px solid ${colors.primary} !important;
+        outline-offset: -2px !important;
+      }
+      input[type="email"]:focus {
+        border-color: ${colors.primary} !important;
+        box-shadow: 0 0 0 3px rgba(15, 82, 186, 0.1) !important;
+      }
+      button[type="submit"]:not(:disabled):hover {
+        background-color: ${colors.hover} !important;
+      }
+    `;
+    if (document.head) {
+      document.head.appendChild(style);
+    }
+  }
+}
 

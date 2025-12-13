@@ -34,7 +34,7 @@ export default function LeadGenCTA() {
     <>
       <div style={styles.container}>
         <p style={styles.text}>
-          Interested in embedding this widget in your product?
+          Interested in embedding this widget in your application or website?
         </p>
         <button
           type="button"

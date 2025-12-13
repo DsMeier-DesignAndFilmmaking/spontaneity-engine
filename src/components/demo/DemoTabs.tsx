@@ -128,6 +128,7 @@ export default function DemoTabs({ activeTab, onTabChange }: DemoTabsProps) {
 const styles: { [key: string]: React.CSSProperties } = {
   container: {
     display: 'flex',
+    alignItems: 'stretch',
     gap: '0.5rem',
     marginBottom: '1.5rem',
     backgroundColor: colors.bgHover,
@@ -140,7 +141,7 @@ const styles: { [key: string]: React.CSSProperties } = {
     flex: 1,
     padding: '0.875rem 1.25rem',
     fontSize: '0.9375rem',
-    fontWeight: '600',
+    fontWeight: '500',
     backgroundColor: 'transparent',
     color: colors.textMuted,
     border: 'none',
@@ -155,6 +156,7 @@ const styles: { [key: string]: React.CSSProperties } = {
     justifyContent: 'center',
     position: 'relative',
     gap: '0.25rem',
+    textAlign: 'center',
   },
   tabLabel: {
     fontSize: '0.9375rem',
@@ -172,6 +174,7 @@ const styles: { [key: string]: React.CSSProperties } = {
   tabActive: {
     backgroundColor: colors.bgPrimary,
     color: colors.primary,
+    fontWeight: '600', // Increased weight for active tab
     boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)',
   },
   tabSubtextActive: {
@@ -205,34 +208,44 @@ if (typeof document !== 'undefined') {
       }
       button[role="tab"][aria-selected="true"]:hover {
         background-color: ${colors.bgPrimary} !important;
-        color: ${colors.textPrimary} !important;
+        color: ${colors.primary} !important;
         box-shadow: 0 2px 4px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06) !important;
       }
       button[role="tab"][aria-selected="true"]:hover span[style*="tabSubtext"] {
         color: ${colors.textMuted} !important;
       }
-      /* Active tab indicator (subtle underline) */
+      /* Ensure active indicator remains visible on hover */
+      button[role="tab"][aria-selected="true"]:hover::after {
+        background-color: ${colors.primary} !important;
+        height: 3px !important;
+      }
+      /* Active tab indicator - Full-width edge-to-edge */
       button[role="tab"][aria-selected="true"]::after {
         content: '';
         position: absolute;
-        bottom: -0.125rem;
-        left: 50%;
-        transform: translateX(-50%);
-        width: calc(100% - 2rem);
-        height: 2px;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        width: 100%;
+        height: 3px;
         background-color: ${colors.primary};
-        border-radius: 2px;
+        border-radius: 2px 2px 0 0;
       }
       /* Mobile adjustments */
       @media (max-width: 640px) {
         button[role="tab"] {
           padding: 0.75rem 1rem;
+          min-height: 44px; /* Ensure WCAG touch target */
         }
         button[role="tab"] span[style*="tabLabel"] {
           font-size: 0.875rem !important;
         }
         button[role="tab"] span[style*="tabSubtext"] {
           font-size: 0.6875rem !important;
+        }
+        /* Ensure active indicator is visible on mobile */
+        button[role="tab"][aria-selected="true"]::after {
+          height: 3px !important;
         }
       }
       /* Subtext styling */

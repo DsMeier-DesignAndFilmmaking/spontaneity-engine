@@ -244,52 +244,57 @@ export default function RecentResults({ onResultSelect, currentResultId }: Recen
     onResultSelect(result.data, result.id);
   };
 
-  if (results.length === 0) {
-    return null;
-  }
-
   return (
     <div style={styles.container} data-recent-results>
       <label style={styles.label}>Recent results</label>
-      <div style={styles.thumbnailsContainer}>
-        {results.map((result) => (
-          <button
-            key={result.id}
-            type="button"
-            onClick={() => handleResultClick(result)}
-            className="recent-result-thumbnail"
-            style={{
-              ...styles.thumbnail,
-              ...(currentResultId === result.id ? styles.thumbnailActive : {}),
-            }}
-            aria-label={`Load result from ${new Date(result.timestamp).toLocaleString()}`}
-          >
-            <div style={styles.thumbnailPreview}>
-              {(() => {
-                // Sanitize preview text to remove parameter leakage
-                let preview = result.preview;
-                try {
-                  // Try to extract a clean title from the stored data
-                  const data = typeof result.data === 'string' ? JSON.parse(result.data) : result.data;
-                  const title = data.activityName || data.title || data.name || '';
-                  if (title) {
-                    preview = sanitizeTitle(title);
-                  } else {
+      {results.length === 0 ? (
+        <div style={styles.emptyState}>
+          <div style={styles.emptyStateIcon}>📋</div>
+          <p style={styles.emptyStateText}>
+            No recent results yet. Generate your first adventure to see it here!
+          </p>
+        </div>
+      ) : (
+        <div style={styles.thumbnailsContainer}>
+          {results.map((result) => (
+            <button
+              key={result.id}
+              type="button"
+              onClick={() => handleResultClick(result)}
+              className="recent-result-thumbnail"
+              style={{
+                ...styles.thumbnail,
+                ...(currentResultId === result.id ? styles.thumbnailActive : {}),
+              }}
+              aria-label={`Load result from ${new Date(result.timestamp).toLocaleString()}`}
+            >
+              <div style={styles.thumbnailPreview}>
+                {(() => {
+                  // Sanitize preview text to remove parameter leakage
+                  let preview = result.preview;
+                  try {
+                    // Try to extract a clean title from the stored data
+                    const data = typeof result.data === 'string' ? JSON.parse(result.data) : result.data;
+                    const title = data.activityName || data.title || data.name || '';
+                    if (title) {
+                      preview = sanitizeTitle(title);
+                    } else {
+                      preview = sanitizeTitle(result.preview);
+                    }
+                  } catch (e) {
+                    // If parsing fails, just sanitize the preview text
                     preview = sanitizeTitle(result.preview);
                   }
-                } catch (e) {
-                  // If parsing fails, just sanitize the preview text
-                  preview = sanitizeTitle(result.preview);
-                }
-                return preview.substring(0, 50) + (preview.length > 50 ? '...' : '');
-              })()}
-            </div>
-            <div style={styles.thumbnailTime}>
-              {new Date(result.timestamp).toLocaleTimeString()}
-            </div>
-          </button>
-        ))}
-      </div>
+                  return preview.substring(0, 50) + (preview.length > 50 ? '...' : '');
+                })()}
+              </div>
+              <div style={styles.thumbnailTime}>
+                {new Date(result.timestamp).toLocaleTimeString()}
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -343,6 +348,29 @@ const styles: { [key: string]: React.CSSProperties } = {
   thumbnailTime: {
     fontSize: '0.7rem',
     color: '#999',
+  },
+  emptyState: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: '2rem 1rem',
+    textAlign: 'center',
+    backgroundColor: 'var(--sdk-bg-color, ' + colors.bgPrimary + ')',
+    border: `1px dashed var(--sdk-border-color, ${colors.border})`,
+    borderRadius: '8px',
+  },
+  emptyStateIcon: {
+    fontSize: '2rem',
+    marginBottom: '0.75rem',
+    opacity: 0.6,
+  },
+  emptyStateText: {
+    fontSize: '0.875rem',
+    color: 'var(--sdk-text-secondary, ' + colors.textSecondary + ')',
+    margin: 0,
+    lineHeight: 1.5,
+    maxWidth: '280px',
   },
 };
 

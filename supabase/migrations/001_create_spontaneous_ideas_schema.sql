@@ -6,10 +6,11 @@
 -- ============================================================================
 
 -- Enable required extensions
-CREATE EXTENSION IF NOT EXISTS "vector";
+
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-CREATE EXTENSION IF NOT EXISTS "cube";
-CREATE EXTENSION IF NOT EXISTS "earthdistance";
+CREATE EXTENSION IF NOT EXISTS vector;
+CREATE EXTENSION IF NOT EXISTS cube;
+CREATE EXTENSION IF NOT EXISTS earthdistance;
 
 -- ============================================================================
 -- MAIN TABLE: spontaneous_ideas

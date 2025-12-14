@@ -827,7 +827,7 @@ const styles: { [key: string]: React.CSSProperties } = {
     justifyContent: 'center',
     transition: 'all 0.2s ease-in-out',
     outline: 'none',
-    color: colors.textMuted,
+    color: 'var(--sdk-text-secondary, ' + colors.textSecondary + ')',
     flexShrink: 0,
   },
   settingsButtonDisabled: {
@@ -838,6 +838,7 @@ const styles: { [key: string]: React.CSSProperties } = {
     display: 'block',
     width: '20px',
     height: '20px',
+    color: 'inherit',
   },
   controls: {
     display: 'flex',

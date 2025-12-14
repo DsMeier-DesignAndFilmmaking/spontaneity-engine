@@ -857,19 +857,19 @@ const styles: { [key: string]: React.CSSProperties } = {
     alignItems: 'center',
     gap: '0.5rem',
     padding: '0.625rem 1rem',
-    backgroundColor: `var(--sdk-bg-accent, ${colors.bgAccent})`,
-    border: `2px solid var(--sdk-primary-color, ${colors.primary})`,
+    backgroundColor: `${colors.success}20`, // Light green background (20% opacity)
+    border: `2px solid var(--sdk-success-color, ${colors.success})`,
     borderRadius: '8px',
     marginBottom: '1rem',
     fontSize: '0.875rem',
     fontWeight: '600',
-    color: `var(--sdk-primary-color, ${colors.primary})`,
+    color: `var(--sdk-success-color, ${colors.success})`,
     animation: 'slideInDown 0.4s ease-out',
   },
   successIcon: {
     width: '16px',
     height: '16px',
-    color: `var(--sdk-primary-color, ${colors.primary})`,
+    color: `var(--sdk-success-color, ${colors.success})`,
     flexShrink: 0,
   },
   summarySection: {

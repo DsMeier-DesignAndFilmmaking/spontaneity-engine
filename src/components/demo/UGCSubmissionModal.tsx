@@ -1,12 +1,21 @@
 /**
  * UGCSubmissionModal.tsx
- * Minimal UGC submission interface for suggesting local ideas.
+ * User-generated content submission modal for "Share Your Spontaneous Idea" feature.
  * 
- * MVaP-safe: No social mechanics, no profiles, no public moderation UI.
+ * Features:
+ * - Supports both anonymous (demo mode) and authenticated users
+ * - Auto-populates location from browser geolocation
+ * - Generates OpenAI embeddings for AI-powered similarity search
+ * - Graceful fallback if OpenAI API fails (idea still saves without embedding)
+ * - Respects Supabase Row-Level Security policies
+ * - Resets form after successful submission
+ * - Shows loading state during submission
  */
 
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
+import { supabase } from '@/lib/db/supabase';
+import { useAuth } from '@/stores/auth';
 import colors from '@/lib/design/colors';
 
 export interface UGCSubmissionModalProps {
@@ -15,21 +24,54 @@ export interface UGCSubmissionModalProps {
   defaultLocation?: string;
 }
 
+interface GeolocationData {
+  latitude: number | null;
+  longitude: number | null;
+  locationName: string;
+  city: string | null;
+  country: string;
+}
+
 /**
  * UGCSubmissionModal component
+ * 
+ * DEMO MODE (Anonymous):
+ * - user_id is null
+ * - is_anonymous is true
+ * - RLS policy allows anonymous inserts
+ * 
+ * AUTHENTICATED MODE:
+ * - user_id is set from auth session
+ * - is_anonymous is false
+ * - User can later manage their own submissions
+ * 
+ * OPENAI EMBEDDING FALLBACK:
+ * - If OpenAI API fails (rate limit, network error, etc.), the idea still saves
+ * - embedding field is set to null
+ * - Idea is still searchable by text fields (headline, description, tags)
+ * - Future: Can regenerate embeddings via admin tool
  */
 export default function UGCSubmissionModal({
   isOpen,
   onClose,
   defaultLocation = '',
 }: UGCSubmissionModalProps) {
-  const [idea, setIdea] = useState('');
+  const { user, authStatus } = useAuth();
+  const [headline, setHeadline] = useState('');
   const [description, setDescription] = useState('');
   const [location, setLocation] = useState(defaultLocation);
-  const [timing, setTiming] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showToast, setShowToast] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
   const [isMobile, setIsMobile] = useState(false);
+  const [geolocation, setGeolocation] = useState<GeolocationData>({
+    latitude: null,
+    longitude: null,
+    locationName: defaultLocation || '',
+    city: null,
+    country: 'US',
+  });
+  const [geolocationError, setGeolocationError] = useState<string | null>(null);
 
   // Detect mobile viewport
   useEffect(() => {
@@ -44,60 +86,249 @@ export default function UGCSubmissionModal({
     }
   }, []);
 
+  // Get browser geolocation on mount (if available)
+  useEffect(() => {
+    if (!isOpen || !navigator.geolocation) {
+      return;
+    }
+
+    // Only request geolocation if location is not already set
+    if (!location || location.trim() === '') {
+      navigator.geolocation.getCurrentPosition(
+        async (position) => {
+          const { latitude, longitude } = position.coords;
+          
+          try {
+            // Reverse geocode to get location name (optional - can use a geocoding service)
+            // For now, we'll just store the coordinates and let the user provide location name
+            setGeolocation({
+              latitude,
+              longitude,
+              locationName: location || 'Current Location',
+              city: null, // Could be populated via reverse geocoding API
+              country: 'US', // Default, could be determined from coordinates
+            });
+          } catch (error) {
+            console.warn('Geolocation reverse lookup failed:', error);
+            // Still use coordinates even if reverse lookup fails
+            setGeolocation({
+              latitude,
+              longitude,
+              locationName: location || 'Current Location',
+              city: null,
+              country: 'US',
+            });
+          }
+        },
+        (error) => {
+          // User denied geolocation or error occurred - silently continue
+          console.warn('Geolocation error:', error.message);
+          setGeolocationError(error.message);
+          setGeolocation({
+            latitude: null,
+            longitude: null,
+            locationName: location || '',
+            city: null,
+            country: 'US',
+          });
+        },
+        {
+          enableHighAccuracy: false,
+          timeout: 5000,
+          maximumAge: 300000, // Cache for 5 minutes
+        }
+      );
+    }
+  }, [isOpen, location]);
+
+  // Update location name when user types
+  useEffect(() => {
+    if (location) {
+      setGeolocation(prev => ({
+        ...prev,
+        locationName: location,
+      }));
+    }
+  }, [location]);
+
   if (!isOpen) return null;
 
+  /**
+   * Generate OpenAI embedding for the headline
+   * Falls back gracefully if API fails
+   */
+  const generateEmbedding = async (text: string): Promise<number[] | null> => {
+    try {
+      const response = await fetch('/api/openai-embedding', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ text }),
+      });
+
+      if (!response.ok) {
+        console.warn('[UGC] OpenAI embedding generation failed:', response.status);
+        return null; // Fallback: continue without embedding
+      }
+
+      const data = await response.json();
+      
+      // Handle new response format: { embedding: number[] } or { embedding: null, error: string }
+      if (data.embedding && Array.isArray(data.embedding)) {
+        return data.embedding;
+      }
+
+      // If embedding is null, log the error but continue without blocking
+      if (data.error) {
+        console.warn('[UGC] OpenAI embedding error:', data.error);
+      }
+
+      return null; // Fallback: continue without embedding
+    } catch (error) {
+      console.warn('[UGC] OpenAI embedding generation error:', error);
+      return null; // Fallback: continue without embedding
+    }
+  };
+
+  /**
+   * Handle form submission
+   * 
+   * Flow:
+   * 1. Validate required fields
+   * 2. Generate OpenAI embedding (with fallback)
+   * 3. Insert into Supabase spontaneous_ideas table
+   * 4. Handle RLS policies (anonymous insert allowed)
+   * 5. Reset form and show success message
+   */
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!idea.trim() || idea.trim().length === 0) {
+    // Validate required fields
+    if (!headline.trim() || headline.trim().length < 3) {
+      setToastMessage('Headline must be at least 3 characters');
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 3000);
+      return;
+    }
+
+    if (headline.trim().length > 200) {
+      setToastMessage('Headline must be 200 characters or less');
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 3000);
       return;
     }
 
     setIsSubmitting(true);
 
     try {
-      // Submit UGC to API
-      const response = await fetch('/api/ugc/submit', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          idea: idea.trim(),
-          description: description.trim(),
-          location: location.trim() || 'Nearby',
-          timing: timing || 'Today',
-        }),
-      });
+      // Step 1: Generate embedding (with fallback)
+      // This runs in parallel with other prep work, but we wait for it before inserting
+      const embeddingPromise = generateEmbedding(headline.trim());
 
-      if (response.ok) {
-        // Optimistic UI: Show toast and close
+      // Step 2: Prepare data for insertion
+      const isAnonymous = !user || authStatus !== 'LOGGED_IN';
+      
+      // Prepare location data
+      const locationName = geolocation.locationName || location || 'Unknown Location';
+      const city = geolocation.city || null;
+      const country = geolocation.country || 'US';
+
+      // Wait for embedding (or null if it fails)
+      const embedding = await embeddingPromise;
+
+      // Step 3: Insert into Supabase
+      // RLS Policy: "Anyone can submit ideas" allows anonymous inserts
+      const { data, error } = await supabase
+        .from('spontaneous_ideas')
+        .insert({
+          // User identity
+          user_id: user?.id || null,
+          is_anonymous: isAnonymous,
+          user_display_name: user?.user_metadata?.full_name || null,
+
+          // Core content
+          headline: headline.trim(),
+          description: description.trim() || null,
+
+          // Location fields
+          location_name: locationName,
+          city: city,
+          country: country,
+          latitude: geolocation.latitude,
+          longitude: geolocation.longitude,
+
+          // Time fields (optional - can be enhanced later)
+          starts_at: null,
+          ends_at: null,
+          is_flexible_time: true,
+
+          // AI fields
+          embedding: embedding, // null if OpenAI failed - that's okay!
+          tags: [], // Can be enhanced to extract tags from headline/description
+          vibe: null, // Can be enhanced to extract vibe from content
+
+          // Status & visibility
+          status: 'pending', // Will be auto-approved or moderated
+          is_public: true,
+          is_featured: false,
+
+          // Metadata
+          submission_source: 'demo',
+        })
+        .select()
+        .single();
+
+      if (error) {
+        console.error('[UGC] Supabase insert error:', error);
+        
+        // Check if it's an RLS policy error
+        if (error.code === '42501' || error.message.includes('permission denied')) {
+          setToastMessage('Unable to submit. Please try again later.');
+        } else {
+          setToastMessage('Submission failed. Please try again.');
+        }
+        
         setShowToast(true);
-        setTimeout(() => {
-          setShowToast(false);
-          onClose();
-          // Reset form
-          setIdea('');
-          setDescription('');
-          setLocation(defaultLocation);
-          setTiming('');
-          setIsSubmitting(false);
-        }, 2000);
-      } else {
-        // Silent fail - just close
+        setTimeout(() => setShowToast(false), 3000);
+        setIsSubmitting(false);
+        return;
+      }
+
+      // Success!
+      setToastMessage('Thanks! Your idea has been submitted.');
+      setShowToast(true);
+
+      // Reset form after a brief delay
+      setTimeout(() => {
+        setHeadline('');
+        setDescription('');
+        setLocation(defaultLocation);
+        setGeolocation({
+          latitude: null,
+          longitude: null,
+          locationName: defaultLocation || '',
+          city: null,
+          country: 'US',
+        });
+        setShowToast(false);
         setIsSubmitting(false);
         onClose();
-      }
+      }, 2000);
+
     } catch (error) {
-      // Silent fail - just close
-      console.error('UGC submission error:', error);
-      setIsSubmitting(false);
-      onClose();
+      console.error('[UGC] Unexpected submission error:', error);
+      setToastMessage('An error occurred. Please try again.');
+      setShowToast(true);
+      setTimeout(() => {
+        setShowToast(false);
+        setIsSubmitting(false);
+      }, 3000);
     }
   };
 
   const handleBackdropClick = (e: React.MouseEvent) => {
-    if (e.target === e.currentTarget) {
+    if (e.target === e.currentTarget && !isSubmitting) {
       onClose();
     }
   };
@@ -136,6 +367,7 @@ export default function UGCSubmissionModal({
           <button
             type="button"
             onClick={onClose}
+            disabled={isSubmitting}
             style={styles.closeButton}
             aria-label="Close"
           >
@@ -159,15 +391,15 @@ export default function UGCSubmissionModal({
         </div>
 
         <form onSubmit={handleSubmit} style={styles.form}>
-          {/* Field 1: Spontaneous Headline */}
+          {/* Field 1: Spontaneous Headline (required) */}
           <div style={styles.fieldGroup}>
-            <label htmlFor="ugc-idea" style={styles.label}>
-              Spontaneous Headline
+            <label htmlFor="ugc-headline" style={styles.label}>
+              Spontaneous Headline <span style={styles.required}>*</span>
             </label>
             <textarea
-              id="ugc-idea"
-              value={idea}
-              onChange={(e) => setIdea(e.target.value)}
+              id="ugc-headline"
+              value={headline}
+              onChange={(e) => setHeadline(e.target.value)}
               placeholder="Example: Sunset view from the hill behind the old fort"
               style={styles.textarea}
               maxLength={200}
@@ -176,7 +408,7 @@ export default function UGCSubmissionModal({
               disabled={isSubmitting}
             />
             <div style={styles.characterCount}>
-              {idea.length}/200
+              {headline.length}/200
             </div>
           </div>
 
@@ -200,7 +432,7 @@ export default function UGCSubmissionModal({
             </div>
           </div>
 
-          {/* Field 3: Location */}
+          {/* Field 3: Location (auto-populated from geolocation) */}
           <div style={styles.fieldGroup}>
             <label htmlFor="ugc-location" style={styles.label}>
               Location
@@ -210,30 +442,23 @@ export default function UGCSubmissionModal({
               type="text"
               value={location}
               onChange={(e) => setLocation(e.target.value)}
-              placeholder="Auto-filled from your search"
+              placeholder={geolocation.latitude ? "Auto-filled from your location" : "Enter location or allow geolocation"}
               style={styles.input}
               disabled={isSubmitting}
             />
+            {geolocation.latitude && geolocation.longitude && (
+              <p style={styles.geolocationHint}>
+                📍 Using your current location ({geolocation.latitude.toFixed(4)}, {geolocation.longitude.toFixed(4)})
+              </p>
+            )}
           </div>
 
-          {/* Field 4: Timing (optional) */}
-          <div style={styles.fieldGroup}>
-            <label htmlFor="ugc-timing" style={styles.label}>
-              Timing <span style={styles.optional}>(optional)</span>
-            </label>
-            <select
-              id="ugc-timing"
-              value={timing}
-              onChange={(e) => setTiming(e.target.value)}
-              style={styles.select}
-              disabled={isSubmitting}
-            >
-              <option value="">Select timing</option>
-              <option value="Happening now">Happening now</option>
-              <option value="Today">Today</option>
-              <option value="This week">This week</option>
-            </select>
-          </div>
+          {/* Auth status indicator (optional, for debugging) */}
+          {process.env.NODE_ENV === 'development' && (
+            <p style={styles.debugText}>
+              Mode: {user ? `Authenticated (${user.email})` : 'Anonymous (Demo)'}
+            </p>
+          )}
 
           {/* Safety Microcopy */}
           <p style={styles.safetyText}>
@@ -243,10 +468,10 @@ export default function UGCSubmissionModal({
           {/* Submit Button */}
           <button
             type="submit"
-            disabled={!idea.trim() || isSubmitting}
+            disabled={!headline.trim() || headline.trim().length < 3 || isSubmitting}
             style={{
               ...styles.submitButton,
-              ...((!idea.trim() || isSubmitting) ? styles.submitButtonDisabled : {}),
+              ...((!headline.trim() || headline.trim().length < 3 || isSubmitting) ? styles.submitButtonDisabled : {}),
             }}
           >
             {isSubmitting ? 'Submitting...' : 'Submit idea'}
@@ -257,7 +482,7 @@ export default function UGCSubmissionModal({
       {/* Toast Notification */}
       {showToast && (
         <div style={styles.toast} role="status" aria-live="polite">
-          Thanks — your idea may help others discover something local.
+          {toastMessage || 'Thanks — your idea may help others discover something local.'}
         </div>
       )}
     </>
@@ -290,7 +515,7 @@ const styles: { [key: string]: React.CSSProperties } = {
     borderRadius: '12px',
     boxShadow: '0 10px 40px rgba(0, 0, 0, 0.2)',
     zIndex: 9999,
-    maxWidth: '540px', // Match Settings modal width
+    maxWidth: '540px',
     width: '90%',
     maxHeight: '90vh',
     display: 'flex',
@@ -363,6 +588,9 @@ const styles: { [key: string]: React.CSSProperties } = {
     fontWeight: '600',
     color: colors.textPrimary,
   },
+  required: {
+    color: colors.error || '#DC2626',
+  },
   optional: {
     fontSize: '0.875rem',
     fontWeight: '400',
@@ -390,28 +618,23 @@ const styles: { [key: string]: React.CSSProperties } = {
     backgroundColor: colors.bgPrimary,
     color: colors.textPrimary,
   },
-  select: {
-    padding: '0.75rem 1rem',
-    fontSize: '1rem',
-    border: `2px solid ${colors.border}`,
-    borderRadius: '0.5rem',
-    outline: 'none',
-    transition: 'border-color 0.2s',
-    backgroundColor: colors.bgPrimary,
-    color: colors.textPrimary,
-    cursor: 'pointer',
-    appearance: 'none',
-    backgroundImage: `url("data:image/svg+xml,%3Csvg width='20' height='20' viewBox='0 0 24 24' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M6 9L12 15L18 9' stroke='%236b7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`,
-    backgroundRepeat: 'no-repeat',
-    backgroundPosition: 'right 1rem center',
-    backgroundSize: '20px 20px',
-    paddingRight: '3rem',
-  },
   characterCount: {
     fontSize: '0.75rem',
     color: colors.textMuted,
     textAlign: 'right',
     marginTop: '-0.25rem',
+  },
+  geolocationHint: {
+    fontSize: '0.75rem',
+    color: colors.textMuted,
+    margin: 0,
+    marginTop: '-0.25rem',
+  },
+  debugText: {
+    fontSize: '0.75rem',
+    color: colors.textMuted,
+    fontStyle: 'italic',
+    margin: 0,
   },
   safetyText: {
     fontSize: '0.8125rem',
@@ -461,14 +684,13 @@ if (typeof document !== 'undefined') {
     const style = document.createElement('style');
     style.id = styleId;
     style.textContent = `
-      #ugc-idea:focus,
+      #ugc-headline:focus,
       #ugc-description:focus,
-      #ugc-location:focus,
-      #ugc-timing:focus {
+      #ugc-location:focus {
         border-color: ${colors.primary} !important;
         box-shadow: 0 0 0 3px rgba(29, 66, 137, 0.1) !important;
       }
-      button[aria-label="Close"]:hover {
+      button[aria-label="Close"]:hover:not(:disabled) {
         background-color: ${colors.bgHover} !important;
       }
       button[type="submit"]:not(:disabled):hover {
@@ -480,4 +702,3 @@ if (typeof document !== 'undefined') {
     }
   }
 }
-

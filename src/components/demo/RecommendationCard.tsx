@@ -8,6 +8,62 @@
 import React, { useState } from 'react';
 import colors from '@/lib/design/colors';
 import RecommendationDetailsModal from './RecommendationDetailsModal';
+import FallbackRecommendationMockup from './FallbackRecommendationMockup';
+
+/**
+ * Validates recommendation data to check if it's valid and properly formatted
+ * Returns false if the recommendation should trigger the fallback mockup
+ */
+function isValidRecommendationCard(data: {
+  activityName?: string;
+  title?: string;
+  activityRealtimeStatus?: 'open' | 'closed' | 'unknown';
+  activityDurationEstimate?: string;
+  location?: string;
+}): boolean {
+  // CRITICAL CHECK 1: Check for missing or unformatted title (parameter leakage)
+  const displayTitle = data.activityName || data.title || '';
+  if (!displayTitle || displayTitle.trim().length === 0) {
+    console.error('[RecommendationCard Validation Failed] Missing title');
+    return false;
+  }
+  
+  // CRITICAL CHECK 2: Check for parameter leakage in title
+  const hasContextLeakage = displayTitle.includes('[Context:') || 
+                            displayTitle.includes('[Role:') || 
+                            displayTitle.includes('[Mood:') ||
+                            displayTitle.includes('Role=') ||
+                            displayTitle.includes('Mood=') ||
+                            displayTitle.includes('Group=');
+  
+  if (hasContextLeakage) {
+    // Check if the title is primarily or entirely context metadata
+    const isOnlyContext = displayTitle.trim().startsWith('[') && 
+                         (displayTitle.includes('Context:') || displayTitle.includes('Role='));
+    const isContextHeavy = displayTitle.split('[').length > 2;
+    
+    if (isOnlyContext || isContextHeavy) {
+      console.error('[RecommendationCard Validation Failed] Raw parameter leakage detected in title:', displayTitle);
+      return false;
+    }
+    
+    // If title contains context but also has actual content, check if it has enough content
+    const titleWords = displayTitle.split(' ').filter(w => !w.includes('[') && !w.includes('='));
+    if (titleWords.length < 2) {
+      console.error('[RecommendationCard Validation Failed] Title has insufficient content, mostly context metadata:', displayTitle);
+      return false;
+    }
+  }
+  
+  // CRITICAL CHECK 3: Check for closed status
+  if (data.activityRealtimeStatus === 'closed') {
+    console.error('[RecommendationCard Validation Failed] Recommendation status is "Closed"');
+    return false;
+  }
+  
+  // All checks passed
+  return true;
+}
 
 // Conditionally import useRouter - handle both Next.js and non-Next.js contexts
 let useRouter: (() => any) | null = null;
@@ -193,6 +249,26 @@ export default function RecommendationCard({
       onDetailsClick();
     }
   };
+
+  // Validate recommendation data before rendering
+  const cardData = {
+    activityName,
+    activityRealtimeStatus,
+    activityDurationEstimate,
+  };
+  
+  const isValid = isValidRecommendationCard(cardData);
+  
+  // If data is invalid, render fallback mockup
+  if (!isValid) {
+    console.warn('[RecommendationCard] Invalid data detected, rendering fallback mockup');
+    return (
+      <FallbackRecommendationMockup
+        onRefineAdventure={onRefineAdventure}
+        failureReason="Invalid recommendation data"
+      />
+    );
+  }
 
   const isOpen = activityRealtimeStatus === 'open';
   const statusColor = isOpen ? colors.success : colors.error;

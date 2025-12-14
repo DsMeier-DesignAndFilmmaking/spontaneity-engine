@@ -202,8 +202,24 @@ export default function RefineAdventureModal({
                     aria-pressed={budget === option.value}
                     className="budget-button"
                   >
-                    <span style={styles.budgetLabel}>{option.label}</span>
-                    <span style={styles.budgetDescription}>{option.description}</span>
+                    <span 
+                      style={{
+                        ...styles.budgetLabel,
+                        ...(budget === option.value ? styles.budgetButtonActiveLabel : {}),
+                      }}
+                      className="budget-label"
+                    >
+                      {option.label}
+                    </span>
+                    <span 
+                      style={{
+                        ...styles.budgetDescription,
+                        ...(budget === option.value ? { color: 'rgba(255, 255, 255, 0.9)' } : {}),
+                      }}
+                      className="budget-description"
+                    >
+                      {option.description}
+                    </span>
                   </button>
                 ))}
               </div>
@@ -389,14 +405,18 @@ const styles: { [key: string]: React.CSSProperties } = {
     gap: '0.25rem',
   },
   budgetButtonActive: {
-    backgroundColor: 'var(--sdk-bg-accent, ' + colors.bgAccent + ')',
+    backgroundColor: 'var(--sdk-primary-color, ' + colors.primary + ')',
     borderColor: 'var(--sdk-primary-color, ' + colors.primary + ')',
     borderWidth: '2px',
+    color: '#FFFFFF',
   },
   budgetLabel: {
     fontSize: '1.25rem',
     fontWeight: '700',
     color: 'var(--sdk-text-color, ' + colors.textPrimary + ')',
+  },
+  budgetButtonActiveLabel: {
+    color: '#FFFFFF',
   },
   budgetDescription: {
     fontSize: '0.75rem',
@@ -446,7 +466,7 @@ if (typeof document !== 'undefined') {
     const style = document.createElement('style');
     style.id = styleId;
     style.textContent = `
-      [data-refine-modal] button[type="button"]:not(:disabled):hover {
+      [data-refine-modal] button[type="button"]:not(:disabled):hover:not(.budget-button) {
         opacity: 0.9;
       }
       [data-refine-modal] .close-button:hover {
@@ -458,9 +478,37 @@ if (typeof document !== 'undefined') {
         border-color: var(--sdk-primary-color, ${colors.primary}) !important;
         box-shadow: 0 0 0 3px rgba(29, 66, 137, 0.1) !important;
       }
+      /* CRITICAL ADA FIX: Light background hover with dark text for non-selected budget blocks */
       [data-refine-modal] .budget-button:hover:not([aria-pressed="true"]) {
         background-color: var(--sdk-bg-hover, ${colors.bgHover}) !important;
         border-color: var(--sdk-hover-color, ${colors.hover}) !important;
+        color: var(--sdk-text-default, var(--sdk-text-color, ${colors.textPrimary})) !important;
+        opacity: 1 !important;
+      }
+      /* Force all text elements in non-selected budget blocks to dark color on hover for WCAG AA compliance */
+      [data-refine-modal] .budget-button:hover:not([aria-pressed="true"]) .budget-label,
+      [data-refine-modal] .budget-button:hover:not([aria-pressed="true"]) .budget-description,
+      [data-refine-modal] .budget-button:hover:not([aria-pressed="true"]) span {
+        color: var(--sdk-text-default, var(--sdk-text-color, ${colors.textPrimary})) !important;
+      }
+      /* Active budget button hover - maintain primary color background with white text (ADA compliant) */
+      [data-refine-modal] .budget-button[aria-pressed="true"]:hover {
+        background-color: var(--sdk-primary-color, ${colors.primary}) !important;
+        border-color: var(--sdk-primary-color, ${colors.primary}) !important;
+        border-width: 2px !important;
+        color: #FFFFFF !important;
+        cursor: default !important;
+        opacity: 1 !important;
+      }
+      /* Ensure all text elements in active budget blocks remain white on hover */
+      [data-refine-modal] .budget-button[aria-pressed="true"]:hover span,
+      [data-refine-modal] .budget-button[aria-pressed="true"]:hover .budget-label,
+      [data-refine-modal] .budget-button[aria-pressed="true"]:hover .budget-description {
+        color: #FFFFFF !important;
+        opacity: 1 !important;
+      }
+      [data-refine-modal] .budget-button[aria-pressed="true"]:hover .budget-label {
+        font-weight: 700 !important;
       }
       [data-refine-modal] .apply-button:hover:not(:disabled) {
         background-color: var(--sdk-hover-color, ${colors.hover}) !important;

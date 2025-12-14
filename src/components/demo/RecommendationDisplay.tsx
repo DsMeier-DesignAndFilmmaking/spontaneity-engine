@@ -271,6 +271,27 @@ export default function RecommendationDisplay({
     }
   }, [shouldShowFallback, validation.reason]);
 
+  // Close abuse options on click outside
+  // IMPORTANT: This hook must be called before any early returns to maintain hook order
+  useEffect(() => {
+    // Only set up event listeners if we're not showing the fallback
+    if (shouldShowFallback) return;
+
+    const handleClickOutside = (event: MouseEvent) => {
+      if (abuseSignalRef.current && !abuseSignalRef.current.contains(event.target as Node)) {
+        setShowAbuseOptions(false);
+      }
+      if (whyNowRef.current && !whyNowRef.current.contains(event.target as Node)) {
+        setShowWhyNow(false);
+      }
+    };
+
+    if (showAbuseOptions || showWhyNow) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [showAbuseOptions, showWhyNow, shouldShowFallback]);
+
   // If validation fails, show fallback mockup
   if (shouldShowFallback) {
     return (
@@ -290,23 +311,6 @@ export default function RecommendationDisplay({
     data.activityRatingAggregate !== undefined ||
     data.activityPriceTier !== undefined
   );
-
-  // Close abuse options on click outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (abuseSignalRef.current && !abuseSignalRef.current.contains(event.target as Node)) {
-        setShowAbuseOptions(false);
-      }
-      if (whyNowRef.current && !whyNowRef.current.contains(event.target as Node)) {
-        setShowWhyNow(false);
-      }
-    };
-
-    if (showAbuseOptions || showWhyNow) {
-      document.addEventListener('mousedown', handleClickOutside);
-      return () => document.removeEventListener('mousedown', handleClickOutside);
-    }
-  }, [showAbuseOptions, showWhyNow]);
 
   // Generate or retrieve session ID (anonymous)
   const getSessionId = (): string => {

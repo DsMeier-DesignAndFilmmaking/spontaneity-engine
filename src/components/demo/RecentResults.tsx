@@ -10,6 +10,99 @@ import React, { useState, useEffect } from 'react';
 import { trackEvent } from '@/lib/analytics/trackEvent';
 import colors from '@/lib/design/colors';
 
+/**
+ * Sanitizes title by removing parameter leakage patterns
+ */
+function sanitizeTitle(title: string): string {
+  if (!title || typeof title !== 'string') {
+    return '';
+  }
+  
+  // Remove context metadata patterns
+  let sanitized = title
+    .replace(/\[Context:[^\]]+\]/gi, '')
+    .replace(/\[Role:[^\]]+\]/gi, '')
+    .replace(/\[Mood:[^\]]+\]/gi, '')
+    .replace(/Role=[^,\]]+/gi, '')
+    .replace(/Mood=[^,\]]+/gi, '')
+    .replace(/Group=[^,\]]+/gi, '')
+    .trim();
+  
+  // If title is empty after sanitization, return a default
+  if (!sanitized || sanitized.length === 0) {
+    return 'Your Spontaneous Adventure';
+  }
+  
+  // Remove any remaining brackets or metadata artifacts
+  sanitized = sanitized.replace(/^[\[\],\s]+|[\[\],\s]+$/g, '').trim();
+  
+  return sanitized;
+}
+
+/**
+ * Validates recommendation data to check if it's valid and properly formatted
+ * Returns false if the recommendation should be filtered out
+ */
+function isValidRecommendation(data: {
+  title?: string;
+  activityName?: string;
+  activityRealtimeStatus?: 'open' | 'closed' | 'unknown';
+  raw?: any;
+}): boolean {
+  // Check for missing or unformatted title (parameter leakage)
+  const displayTitle = data.activityName || data.title || '';
+  if (!displayTitle || displayTitle.trim().length === 0) {
+    return false;
+  }
+  
+  // Check for parameter leakage in title (e.g., [Context:...])
+  const hasContextLeakage = displayTitle.includes('[Context:') || 
+                            displayTitle.includes('[Role:') || 
+                            displayTitle.includes('[Mood:') ||
+                            displayTitle.includes('Role=') ||
+                            displayTitle.includes('Mood=') ||
+                            displayTitle.includes('Group=');
+  
+  if (hasContextLeakage) {
+    // Check if the title is primarily or entirely context metadata
+    const isOnlyContext = displayTitle.trim().startsWith('[') && 
+                         (displayTitle.includes('Context:') || displayTitle.includes('Role='));
+    const isContextHeavy = displayTitle.split('[').length > 2; // Multiple context blocks
+    
+    if (isOnlyContext || isContextHeavy) {
+      return false;
+    }
+    
+    // If title starts with a word but contains context, check if it has enough content
+    const titleWords = displayTitle.split(' ').filter(w => !w.includes('[') && !w.includes('='));
+    if (titleWords.length < 2) {
+      return false;
+    }
+  }
+  
+  // Check for closed status
+  if (data.activityRealtimeStatus === 'closed') {
+    return false;
+  }
+  
+  // Check raw data for closed status in various formats
+  if (data.raw) {
+    const rawStatus = data.raw.status || data.raw.activity_realtime_status || data.raw.realtime_status;
+    if (rawStatus === 'closed' || rawStatus === 'Closed' || rawStatus === 'CLOSED') {
+      return false;
+    }
+    
+    // Check for unavailable flags
+    if (data.raw.is_unavailable === true || 
+        data.raw.unavailable === true ||
+        data.raw.isUnavailable === true) {
+      return false;
+    }
+  }
+  
+  return true;
+}
+
 export interface ResultThumbnail {
   id: string;
   preview: string;
@@ -37,13 +130,40 @@ const MAX_RESULTS = 3;
 export default function RecentResults({ onResultSelect, currentResultId }: RecentResultsProps) {
   const [results, setResults] = useState<ResultThumbnail[]>([]);
 
-  // Load results from localStorage
+  // Load results from localStorage and filter out invalid ones
   useEffect(() => {
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
       if (stored) {
         const parsed = JSON.parse(stored) as ResultThumbnail[];
-        setResults(parsed);
+        
+        // Filter out invalid results (parameter leakage, closed status, etc.)
+        const validResults = parsed.filter((result) => {
+          try {
+            const data = typeof result.data === 'string' ? JSON.parse(result.data) : result.data;
+            const displayTitle = data.activityName || data.title || data.name || '';
+            const status = data.activity_realtime_status || data.status || data.realtime_status || '';
+            
+            // Quick validation check
+            return isValidRecommendation({
+              title: displayTitle,
+              activityName: displayTitle,
+              activityRealtimeStatus: status === 'open' ? 'open' : status === 'closed' ? 'closed' : 'unknown',
+              raw: data,
+            });
+          } catch (e) {
+            // If we can't parse the data, filter it out
+            return false;
+          }
+        });
+        
+        // Update localStorage with only valid results
+        if (validResults.length !== parsed.length) {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(validResults));
+          console.log(`[RecentResults] Filtered out ${parsed.length - validResults.length} invalid results from localStorage`);
+        }
+        
+        setResults(validResults);
       }
     } catch (error) {
       console.error('Error loading recent results:', error);
@@ -145,7 +265,24 @@ export default function RecentResults({ onResultSelect, currentResultId }: Recen
             aria-label={`Load result from ${new Date(result.timestamp).toLocaleString()}`}
           >
             <div style={styles.thumbnailPreview}>
-              {result.preview.substring(0, 50)}...
+              {(() => {
+                // Sanitize preview text to remove parameter leakage
+                let preview = result.preview;
+                try {
+                  // Try to extract a clean title from the stored data
+                  const data = typeof result.data === 'string' ? JSON.parse(result.data) : result.data;
+                  const title = data.activityName || data.title || data.name || '';
+                  if (title) {
+                    preview = sanitizeTitle(title);
+                  } else {
+                    preview = sanitizeTitle(result.preview);
+                  }
+                } catch (e) {
+                  // If parsing fails, just sanitize the preview text
+                  preview = sanitizeTitle(result.preview);
+                }
+                return preview.substring(0, 50) + (preview.length > 50 ? '...' : '');
+              })()}
             </div>
             <div style={styles.thumbnailTime}>
               {new Date(result.timestamp).toLocaleTimeString()}

@@ -78,7 +78,7 @@ export const colors = {
   disabled: ui.disabled,
   
   // Status Colors (extending the palette)
-  success: brand.secondary, // Chartreuse for success
+  success: '#15803D', // Dark green for success - ADA compliant (WCAG AA: 4.5:1+ contrast)
   error: '#DC2626', // Red for errors (standard)
   warning: '#F59E0B', // Amber for warnings (standard)
   info: brand.primary, // Primary for info

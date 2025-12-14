@@ -9,7 +9,6 @@
  * Enhanced with:
  * - Predefined presets bar
  * - Context toggles (role, mood, group_size)
- * - Save & Share functionality
  * - Feedback widget
  * - Recent results (localStorage)
  * - Analytics tracking
@@ -21,7 +20,6 @@ import { trackEvent } from '@/lib/analytics/trackEvent';
 import colors from '@/lib/design/colors';
 import SettingsModal from './SettingsModal';
 import RecentResultsAccordion from './RecentResultsAccordion';
-import SaveShareWidget from './SaveShareWidget';
 import FeedbackWidget from './FeedbackWidget';
 import UnifiedVibeSelector from './UnifiedVibeSelector';
 import RecommendationDisplay from './RecommendationDisplay';
@@ -48,7 +46,6 @@ function generateResultId(): string {
  * - Generate & Test button (uses anonymous API key)
  * - Predefined presets bar (feature-flagged)
  * - Context toggles (role, mood, group_size) (feature-flagged)
- * - Save & Share functionality (feature-flagged)
  * - Feedback widget (feature-flagged)
  * - Recent results (feature-flagged)
  * - Analytics tracking
@@ -81,8 +78,6 @@ export default function FreeDemoWidget() {
   const [showInputModal, setShowInputModal] = useState(false);
   // Refine adventure modal state
   const [showRefineModal, setShowRefineModal] = useState(false);
-  // Developer mode toggle (UI only)
-  const [developerMode, setDeveloperMode] = useState(false);
   // Budget state (for refine modal)
   const [budget, setBudget] = useState<'low' | 'medium' | 'high' | ''>('');
   // Selected LLMs state (default to OpenAI)
@@ -138,6 +133,8 @@ export default function FreeDemoWidget() {
    * Handles result selection from RecentResults
    */
   const handleResultSelect = (resultData: string, selectedResultId: string) => {
+    // Reset error state when loading a result
+    setError(null);
     setResult(resultData);
     setResultId(selectedResultId);
   };
@@ -148,9 +145,11 @@ export default function FreeDemoWidget() {
    */
   const handleGenerate = async () => {
     try {
+      // CRITICAL STEP: Reset state to force UI to clear/show loading
       setLoading(true);
       setError(null);
       setResult(null);
+      setResultId(null);
 
       // Validate inputs - check smartInput first, then fallback to legacy fields
       const hasSmartInput = smartInput.trim().length > 0;
@@ -296,14 +295,39 @@ export default function FreeDemoWidget() {
           timestamp: Date.now(),
         });
 
-        // Save to recent results
+        // Save to recent results (only if valid)
         if (typeof window !== 'undefined' && (window as any).addRecentResult) {
-          (window as any).addRecentResult({
-            id: newResultId,
-            preview: visiblePrompt,
-            timestamp: Date.now(),
-            data: resultData,
-          });
+          try {
+            // Validate the result before saving
+            const parsedResult = JSON.parse(resultData);
+            const displayTitle = parsedResult.activityName || parsedResult.title || parsedResult.name || '';
+            const status = parsedResult.activity_realtime_status || parsedResult.status || parsedResult.realtime_status || '';
+            
+            // Quick validation: check for parameter leakage and closed status
+            const hasParameterLeakage = displayTitle.includes('[Context:') || 
+                                      displayTitle.includes('[Role:') || 
+                                      displayTitle.includes('Role=');
+            const isClosed = status === 'closed' || status === 'Closed' || status === 'CLOSED' ||
+                           parsedResult.is_unavailable === true || parsedResult.unavailable === true;
+            
+            // Only save if valid
+            if (!hasParameterLeakage && !isClosed && displayTitle && displayTitle.trim().length > 0) {
+              (window as any).addRecentResult({
+                id: newResultId,
+                preview: visiblePrompt,
+                timestamp: Date.now(),
+                data: resultData,
+              });
+            } else {
+              console.log('[FreeDemoWidget] Skipping save to recent results - invalid recommendation:', {
+                hasParameterLeakage,
+                isClosed,
+                hasTitle: !!displayTitle,
+              });
+            }
+          } catch (e) {
+            console.warn('[FreeDemoWidget] Error validating result before saving to recent results:', e);
+          }
         }
       }
 
@@ -336,6 +360,10 @@ export default function FreeDemoWidget() {
    * Handles regenerating a recommendation with the same inputs
    */
   const handleRegenerate = () => {
+    // Reset state before regenerating to ensure clean UI
+    setError(null);
+    setResult(null);
+    setResultId(null);
     handleGenerate();
   };
 
@@ -617,37 +645,6 @@ export default function FreeDemoWidget() {
               loading={loading}
               isNewlyGenerated={true}
             />
-            
-            {/* Developer Mode Toggle (UI only) */}
-            <div style={styles.developerModeSection}>
-              <label style={styles.developerModeLabel}>
-                <input
-                  type="checkbox"
-                  checked={developerMode}
-                  onChange={(e) => setDeveloperMode(e.target.checked)}
-                  style={styles.checkbox}
-                />
-                <span>Developer Mode</span>
-              </label>
-            </div>
-
-            {/* Developer Mode Drawer (UI only, no logic) */}
-            {developerMode && (
-              <div style={styles.developerDrawer} data-developer-drawer>
-                <p style={styles.developerDrawerText}>
-                  Developer mode preview — JSON response, token usage, and model details will appear here in future versions.
-                </p>
-              </div>
-            )}
-            
-            {/* Save & Share Widget (feature-flagged) */}
-            {enhancementsEnabled && (
-              <SaveShareWidget
-                resultId={resultId}
-                resultData={result}
-                disabled={loading}
-              />
-            )}
 
             {/* Feedback Widget (feature-flagged) */}
             {enhancementsEnabled && (
@@ -987,39 +984,6 @@ const styles: { [key: string]: React.CSSProperties } = {
     margin: 0,
     whiteSpace: 'pre-wrap',
     wordBreak: 'break-word',
-  },
-  developerModeSection: {
-    marginTop: '1rem',
-    paddingTop: '1rem',
-    borderTop: '1px solid #e5e7eb',
-  },
-  developerModeLabel: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '0.5rem',
-    fontSize: '0.875rem',
-    fontWeight: '500',
-    color: '#374151',
-    cursor: 'pointer',
-  },
-  checkbox: {
-    width: '1rem',
-    height: '1rem',
-    cursor: 'pointer',
-  },
-  developerDrawer: {
-    marginTop: '1rem',
-    padding: '1rem',
-    backgroundColor: colors.bgHover,
-    border: `1px solid ${colors.border}`,
-    borderRadius: '0.5rem',
-  },
-  developerDrawerText: {
-    fontSize: '0.8125rem',
-    color: colors.textMuted,
-    margin: 0,
-    lineHeight: '1.5',
-    fontStyle: 'italic',
   },
 };
 

@@ -9,6 +9,7 @@
 import React from 'react';
 import colors from '@/lib/design/colors';
 import RecommendationCard from './RecommendationCard';
+import SeeHowItWorksModal from './SeeHowItWorksModal';
 
 export interface FallbackRecommendationMockupProps {
   onRefineAdventure?: () => void;
@@ -49,6 +50,13 @@ export default function FallbackRecommendationMockup({
     if (onRefineAdventure) {
       onRefineAdventure();
     }
+  };
+
+  const [showHowItWorksModal, setShowHowItWorksModal] = React.useState(false);
+
+  const handleSeeHowItWorks = () => {
+    console.log('[Fallback Mockup] See How it Works clicked');
+    setShowHowItWorksModal(true);
   };
 
   return (
@@ -110,17 +118,6 @@ export default function FallbackRecommendationMockup({
         }}
       />
 
-      {/* Description Section */}
-      <div style={styles.descriptionSection}>
-        <p style={styles.description}>
-          An intimate, self-guided tour revealing Denver's secret prohibition-era history. 
-          Ends near a highly-rated cocktail lounge.
-        </p>
-        <div style={styles.statusInfo}>
-          <span style={styles.statusBadge}>Open until 11:00 PM</span>
-        </div>
-      </div>
-
       {/* CTA Container */}
       <div style={styles.ctaContainer}>
         {onRefineAdventure && (
@@ -129,20 +126,26 @@ export default function FallbackRecommendationMockup({
             onClick={handleShowTutorial}
             style={styles.secondaryButton}
             className="secondary-button"
-            aria-label="Refine Adventure Tutorial"
+            aria-label="Refine Adventure"
           >
-            Refine Adventure (Tutorial)
+            Refine Adventure
           </button>
         )}
         <button
           type="button"
-          disabled={true}
+          onClick={handleSeeHowItWorks}
           style={styles.primaryButton}
           aria-label="See How it Works"
         >
           See How it Works
         </button>
       </div>
+
+      {/* See How It Works Modal */}
+      <SeeHowItWorksModal
+        isOpen={showHowItWorksModal}
+        onClose={() => setShowHowItWorksModal(false)}
+      />
     </div>
   );
 }
@@ -175,34 +178,6 @@ const styles: { [key: string]: React.CSSProperties } = {
     color: `var(--sdk-primary-color, ${colors.primary})`,
     flexShrink: 0,
   },
-  descriptionSection: {
-    padding: '1rem',
-    backgroundColor: `var(--sdk-bg-color, ${colors.bgPrimary})`,
-    border: `1px solid var(--sdk-border-color, ${colors.border})`,
-    borderRadius: '8px',
-  },
-  description: {
-    fontSize: '1rem',
-    lineHeight: '1.6',
-    color: `var(--sdk-text-secondary, ${colors.textSecondary})`,
-    margin: '0 0 1rem 0',
-  },
-  statusInfo: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '0.5rem',
-  },
-  statusBadge: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: '0.375rem',
-    padding: '0.375rem 0.75rem',
-    backgroundColor: colors.success + '20',
-    color: colors.success,
-    borderRadius: '6px',
-    fontSize: '0.875rem',
-    fontWeight: '600',
-  },
   ctaContainer: {
     display: 'flex',
     flexDirection: 'column',
@@ -223,15 +198,15 @@ const styles: { [key: string]: React.CSSProperties } = {
     outline: 'none',
   },
   primaryButton: {
-    padding: '0.875rem 1.5rem',
-    fontSize: '1rem',
-    fontWeight: '700',
-    backgroundColor: `var(--sdk-primary-color, ${colors.primary})`,
-    color: `var(--sdk-text-inverse, ${colors.textInverse})`,
-    border: 'none',
+    padding: '0.75rem 1.25rem',
+    fontSize: '0.875rem',
+    fontWeight: '500',
+    backgroundColor: 'transparent',
+    color: `var(--sdk-text-secondary, ${colors.textSecondary})`,
+    border: `1px solid var(--sdk-border-color, ${colors.border})`,
     borderRadius: '8px',
-    cursor: 'not-allowed',
-    opacity: 0.6,
+    cursor: 'pointer',
+    opacity: 1,
     transition: 'all 0.2s',
     outline: 'none',
   },

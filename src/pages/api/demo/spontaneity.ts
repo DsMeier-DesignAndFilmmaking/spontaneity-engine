@@ -66,6 +66,36 @@ function extractVibeFromInput(userInput: string): string | undefined {
 }
 
 /**
+ * Sanitize title by removing parameter leakage patterns
+ * This function attempts to clean titles that contain context metadata
+ */
+function sanitizeTitle(title: string): string {
+  if (!title || typeof title !== 'string') {
+    return '';
+  }
+  
+  // Remove context metadata patterns
+  let sanitized = title
+    .replace(/\[Context:[^\]]+\]/gi, '')
+    .replace(/\[Role:[^\]]+\]/gi, '')
+    .replace(/\[Mood:[^\]]+\]/gi, '')
+    .replace(/Role=[^,\]]+/gi, '')
+    .replace(/Mood=[^,\]]+/gi, '')
+    .replace(/Group=[^,\]]+/gi, '')
+    .trim();
+  
+  // If title is empty after sanitization, return a default
+  if (!sanitized || sanitized.length === 0) {
+    return 'Your Spontaneous Adventure';
+  }
+  
+  // Remove any remaining brackets or metadata artifacts
+  sanitized = sanitized.replace(/^[\[\],\s]+|[\[\],\s]+$/g, '').trim();
+  
+  return sanitized;
+}
+
+/**
  * Generate a mock recommendation when OpenAI quota is exceeded or API fails.
  * This ensures the demo widget remains functional for local testing.
  */
@@ -347,6 +377,19 @@ Return a JSON response with recommended activities and reasoning.`;
     // Parse the result
     let parsedResult: any;
     try {
+      // Server-side validation: Check for parameter leakage and closed status BEFORE parsing
+      if (result && typeof result === 'string') {
+        // Quick check for obvious parameter leakage in raw result string
+        if (result.includes('[Context:') && result.includes('Role=')) {
+          console.warn('[Demo API] Detected parameter leakage in raw result, will be filtered by frontend validation');
+        }
+        
+        // Quick check for closed status in raw result
+        const closedPattern = /"status"\s*:\s*"closed"|"activity_realtime_status"\s*:\s*"closed"|"realtime_status"\s*:\s*"closed"/i;
+        if (closedPattern.test(result)) {
+          console.warn('[Demo API] Detected closed status in raw result, will be filtered by frontend validation');
+        }
+      }
       parsedResult = JSON.parse(result);
       console.log('[Demo API] Result parsed successfully, has recommendation:', !!parsedResult.recommendation);
     } catch (parseError) {
@@ -365,8 +408,71 @@ Return a JSON response with recommended activities and reasoning.`;
       };
     }
 
-    // Generate recommendation ID
-    const recommendationId = generateRecommendationId();
+    // SERVER-SIDE VALIDATION: Check for invalid recommendations before processing
+    let displayTitle = parsedResult.title || parsedResult.activity_name || parsedResult.name || '';
+    const status = parsedResult.activity_realtime_status || parsedResult.status || parsedResult.realtime_status || '';
+    
+    // Check for parameter leakage in title
+    const hasParameterLeakage = displayTitle.includes('[Context:') || 
+                                displayTitle.includes('[Role:') || 
+                                displayTitle.includes('[Mood:') ||
+                                displayTitle.includes('Role=') ||
+                                displayTitle.includes('Mood=') ||
+                                displayTitle.includes('Group=');
+    
+    // Attempt to sanitize title if it has parameter leakage
+    if (hasParameterLeakage) {
+      const sanitized = sanitizeTitle(displayTitle);
+      // Only use sanitized title if it's still meaningful (has at least 3 characters)
+      if (sanitized && sanitized.length >= 3) {
+        console.log('[Demo API] Sanitized title with parameter leakage:', {
+          original: displayTitle.substring(0, 100),
+          sanitized: sanitized.substring(0, 100),
+        });
+        displayTitle = sanitized;
+        parsedResult.title = sanitized;
+        parsedResult.activity_name = sanitized;
+        parsedResult.name = sanitized;
+      } else {
+        // Sanitization didn't produce a valid title, will trigger fallback
+        console.warn('[Demo API] Title sanitization failed, title too short after cleaning');
+      }
+    }
+    
+    // Check for closed status
+    const isClosed = status === 'closed' || 
+                    status === 'Closed' || 
+                    status === 'CLOSED' ||
+                    parsedResult.is_unavailable === true ||
+                    parsedResult.unavailable === true;
+    
+    // Check if title is still invalid after sanitization
+    const isTitleInvalid = !displayTitle || displayTitle.trim().length === 0 || 
+                          (hasParameterLeakage && displayTitle.length < 3);
+    
+    // If validation fails, replace with mock recommendation
+    if (isTitleInvalid || isClosed) {
+      console.warn('[Demo API] Server-side validation failed:', {
+        hasParameterLeakage,
+        isClosed,
+        isTitleInvalid,
+        title: displayTitle.substring(0, 100),
+        status,
+      });
+      
+      // Replace with valid mock recommendation
+      const mockResult = generateMockRecommendation(userInput);
+      parsedResult = { ...mockResult, recommendation_id: parsedResult.recommendation_id || generateRecommendationId() };
+      console.log('[Demo API] Replaced invalid recommendation with mock fallback');
+    } else if (hasParameterLeakage) {
+      // Title was sanitized successfully, ensure status is set to open
+      if (!parsedResult.activity_realtime_status) {
+        parsedResult.activity_realtime_status = 'open';
+      }
+    }
+
+    // Generate recommendation ID if not already set
+    const recommendationId = parsedResult.recommendation_id || generateRecommendationId();
     parsedResult.recommendation_id = recommendationId;
 
     const resultText = parsedResult.recommendation || parsedResult.description || JSON.stringify(parsedResult);

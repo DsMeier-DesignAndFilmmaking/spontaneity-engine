@@ -266,7 +266,7 @@ if (typeof document !== 'undefined') {
       }
       input:focus {
         border-color: ${colors.primary} !important;
-        box-shadow: 0 0 0 3px rgba(15, 82, 186, 0.1) !important;
+        box-shadow: 0 0 0 3px rgba(29, 66, 137, 0.1) !important;
       }
       button[aria-label="Close modal"]:hover {
         background-color: ${colors.bgHover} !important;

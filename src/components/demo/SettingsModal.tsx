@@ -8,8 +8,10 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import { trackEvent } from '@/lib/analytics/trackEvent';
-import PresetsBar from './PresetsBar';
 import ContextToggles, { ContextValues } from './ContextToggles';
+import Tooltip from './Tooltip';
+import ScenariosAndPresets, { ScenarioParameters } from './ScenariosAndPresets';
+import AdvancedFilters, { FilterValues } from './AdvancedFilters';
 import colors from '@/lib/design/colors';
 
 export interface SettingsModalProps {
@@ -20,7 +22,63 @@ export interface SettingsModalProps {
   currentContextValues: ContextValues;
   selectedLLMs?: string[];
   onLLMChange?: (llms: string[]) => void;
+  // Filter handlers
+  currentVibe?: string;
+  currentTime?: string;
+  currentLocation?: string;
+  onFilterChange?: (filters: { vibe: string; time: string; location: string }) => void;
+  onApplyAndGenerate?: () => void;
   disabled?: boolean;
+}
+
+// Helper function to convert scenario parameters to filter values
+function scenarioToFilters(params: ScenarioParameters, currentFilters: FilterValues): FilterValues {
+  return {
+    duration: params.time || currentFilters.duration || '',
+    budget: params.budget || currentFilters.budget || '',
+    outdoor: params.outdoor ?? currentFilters.outdoor,
+    groupActivity: params.groupActivity ?? currentFilters.groupActivity,
+    creative: params.creative ?? currentFilters.creative,
+    relaxing: params.relaxing ?? currentFilters.relaxing,
+    vibe: params.vibe || currentFilters.vibe || '',
+    location: params.location || currentFilters.location || '',
+  };
+}
+
+// Helper function to convert filter values to widget state
+function filtersToWidgetState(filters: FilterValues): { vibe: string; time: string; location: string } {
+  // Combine vibe tags from filters, avoiding duplicates
+  const vibeParts: string[] = [];
+  
+  // Add user-entered vibe tags
+  if (filters.vibe) {
+    const enteredVibes = filters.vibe.split(',').map(v => v.trim()).filter(v => v.length > 0);
+    vibeParts.push(...enteredVibes);
+  }
+  
+  // Add activity type tags if not already present
+  const existingVibes = vibeParts.map(v => v.toLowerCase());
+  if (filters.creative && !existingVibes.includes('creative')) {
+    vibeParts.push('Creative');
+  }
+  if (filters.relaxing && !existingVibes.includes('relaxed') && !existingVibes.includes('relaxing')) {
+    vibeParts.push('Relaxed');
+  }
+  if (filters.groupActivity && !existingVibes.includes('social') && !existingVibes.includes('group')) {
+    vibeParts.push('Social');
+  }
+
+  // Determine location - prefer explicit location, then outdoor flag
+  let location = filters.location || '';
+  if (!location && filters.outdoor) {
+    location = 'Outdoor';
+  }
+
+  return {
+    vibe: vibeParts.join(', '),
+    time: filters.duration,
+    location: location,
+  };
 }
 
 /**
@@ -41,11 +99,35 @@ export default function SettingsModal({
   currentContextValues,
   selectedLLMs = ['OpenAI'],
   onLLMChange,
+  currentVibe = '',
+  currentTime = '',
+  currentLocation = '',
+  onFilterChange,
+  onApplyAndGenerate,
   disabled = false,
 }: SettingsModalProps) {
   const modalRef = useRef<HTMLDivElement>(null);
   const backdropRef = useRef<HTMLDivElement>(null);
   const [isMobile, setIsMobile] = useState(false);
+  
+  // Selected scenario state
+  const [selectedScenario, setSelectedScenario] = useState<string | undefined>(undefined);
+  
+  // Filter values state - initialized from current widget state
+  const [filterValues, setFilterValues] = useState<FilterValues>(() => {
+    // Parse current vibe to extract activity types
+    const vibeLower = (currentVibe || '').toLowerCase();
+    return {
+      duration: currentTime || '',
+      budget: '',
+      outdoor: currentLocation.toLowerCase().includes('outdoor'),
+      groupActivity: vibeLower.includes('social') || vibeLower.includes('group'),
+      creative: vibeLower.includes('creative') || vibeLower.includes('art'),
+      relaxing: vibeLower.includes('relaxed') || vibeLower.includes('relaxing'),
+      vibe: currentVibe || '',
+      location: currentLocation || '',
+    };
+  });
   
   // Available LLM models with detailed characteristics
   const availableLLMs = [
@@ -94,13 +176,65 @@ export default function SettingsModal({
     helpImproveRecommendations: true,
   });
   
-  // Hover states for info tooltips
-  const [hoveredInfo, setHoveredInfo] = useState<string | null>(null);
   
   // Sync local LLM selection with prop changes
   useEffect(() => {
     setLocalSelectedLLMs(selectedLLMs);
   }, [selectedLLMs]);
+
+  // Sync filter values when current widget state changes
+  useEffect(() => {
+    const vibeLower = (currentVibe || '').toLowerCase();
+    const locationLower = (currentLocation || '').toLowerCase();
+    setFilterValues({
+      duration: currentTime || '',
+      budget: '',
+      outdoor: locationLower.includes('outdoor'),
+      groupActivity: vibeLower.includes('social') || vibeLower.includes('group'),
+      creative: vibeLower.includes('creative') || vibeLower.includes('art'),
+      relaxing: vibeLower.includes('relaxed') || vibeLower.includes('relaxing'),
+      vibe: currentVibe || '',
+      location: currentLocation || '',
+    });
+  }, [currentVibe, currentTime, currentLocation]);
+
+  // Handle scenario selection
+  const handleScenarioSelect = (scenarioName: string, parameters: ScenarioParameters) => {
+    setSelectedScenario(scenarioName);
+    
+    // Update filter values to reflect scenario
+    const newFilters = scenarioToFilters(parameters, filterValues);
+    setFilterValues(newFilters);
+    
+    // Update widget state immediately
+    const widgetState = filtersToWidgetState(newFilters);
+    if (onFilterChange) {
+      onFilterChange(widgetState);
+    }
+    
+    // Also call legacy preset handler for compatibility
+    onPresetSelect(scenarioName);
+  };
+
+  // Handle filter values change
+  const handleFilterValuesChange = (newFilters: FilterValues) => {
+    setFilterValues(newFilters);
+    setSelectedScenario(undefined); // Clear scenario selection when manually editing
+    
+    // Update widget state immediately
+    const widgetState = filtersToWidgetState(newFilters);
+    if (onFilterChange) {
+      onFilterChange(widgetState);
+    }
+  };
+
+  // Handle Apply & Generate
+  const handleApplyAndGenerate = () => {
+    if (onApplyAndGenerate) {
+      onApplyAndGenerate();
+      onClose(); // Close modal after generating
+    }
+  };
   
   // Handle LLM selection change
   const handleLLMChange = (model: string, checked: boolean) => {
@@ -229,35 +363,294 @@ export default function SettingsModal({
 
         {/* Content */}
         <div style={styles.content}>
-          {/* SECTION 1: Personalization */}
+          {/* SECTION 1: Scenarios & Presets - High-value instant configurations */}
           <section style={styles.section}>
-            <h3 style={styles.sectionTitle}>Personalization</h3>
+            <ScenariosAndPresets
+              onScenarioSelect={handleScenarioSelect}
+              onApplyAndGenerate={handleApplyAndGenerate}
+              selectedScenario={selectedScenario}
+              disabled={disabled}
+              currentFilterState={{
+                vibe: filterValues.vibe,
+                time: filterValues.duration,
+                location: filterValues.location,
+                budget: filterValues.budget || undefined,
+                outdoor: filterValues.outdoor,
+                groupActivity: filterValues.groupActivity,
+                creative: filterValues.creative,
+                relaxing: filterValues.relaxing,
+              }}
+              currentLocation={currentLocation}
+            />
+          </section>
+
+          {/* SECTION 2: Advanced Filters - Manual refinement */}
+          <section style={styles.section}>
+            <AdvancedFilters
+              values={filterValues}
+              onValuesChange={handleFilterValuesChange}
+              disabled={disabled}
+            />
+          </section>
+
+          {/* SECTION 3: Travel Context - Core personalization */}
+          <section style={styles.section}>
+            <h3 style={styles.sectionTitle}>Travel Context</h3>
             <div style={styles.sectionDescription}>
-              Customize how recommendations are tailored to your preferences.
+              Tell us about your situation to get more personalized recommendations.
+            </div>
+            <ContextToggles
+              onChange={onContextChange}
+              disabled={disabled}
+            />
+          </section>
+
+          {/* SECTION 4: Trust & Safety - Quality filters */}
+          <section style={styles.section}>
+            <div style={styles.sectionHeader}>
+              <h3 style={styles.sectionTitle}>Trust & Safety</h3>
+              <div style={styles.sectionDescription}>
+                Control how recommendations are filtered and verified for quality and reliability.
+              </div>
             </div>
             
-            {/* Presets */}
-            <div style={styles.subsection}>
-              <h4 style={styles.subsectionTitle}>Presets</h4>
-              <PresetsBar onPresetSelect={onPresetSelect} disabled={disabled} />
-            </div>
+            <div style={styles.trustToggles}>
+              {/* Prefer Highly Trusted */}
+              <div style={styles.toggleItem}>
+                <label style={styles.toggleLabel}>
+                  <input
+                    type="checkbox"
+                    checked={trustSettings.preferHighlyTrusted}
+                    onChange={(e) => setTrustSettings(prev => ({ ...prev, preferHighlyTrusted: e.target.checked }))}
+                    disabled={disabled}
+                    style={styles.checkbox}
+                  />
+                  <span style={styles.toggleText}>Prefer highly trusted recommendations</span>
+                  <Tooltip
+                    content="Prioritizes suggestions with stronger verification signals."
+                    position="top"
+                  >
+                    <button
+                      type="button"
+                      style={styles.infoButton}
+                      aria-label="Learn more about highly trusted recommendations"
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={styles.infoIcon}>
+                        <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2"/>
+                        <path d="M12 16V12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                        <circle cx="12" cy="8" r="1" fill="currentColor"/>
+                      </svg>
+                    </button>
+                  </Tooltip>
+                </label>
+              </div>
 
-            {/* Travel Context */}
-            <div style={styles.subsection}>
-              <h4 style={styles.subsectionTitle}>Travel Context</h4>
-              <ContextToggles
-                onChange={onContextChange}
-                disabled={disabled}
-              />
+              {/* Include Recent Activity */}
+              <div style={styles.toggleItem}>
+                <label style={styles.toggleLabel}>
+                  <input
+                    type="checkbox"
+                    checked={trustSettings.includeRecentActivity}
+                    onChange={(e) => setTrustSettings(prev => ({ ...prev, includeRecentActivity: e.target.checked }))}
+                    disabled={disabled}
+                    style={styles.checkbox}
+                  />
+                  <span style={styles.toggleText}>Include real-time and recently active places</span>
+                  <Tooltip
+                    content="Helps avoid outdated or inactive recommendations."
+                    position="top"
+                  >
+                    <button
+                      type="button"
+                      style={styles.infoButton}
+                      aria-label="Learn more about recent activity"
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={styles.infoIcon}>
+                        <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2"/>
+                        <path d="M12 16V12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                        <circle cx="12" cy="8" r="1" fill="currentColor"/>
+                      </svg>
+                    </button>
+                  </Tooltip>
+                </label>
+              </div>
+
+              {/* Allow Community Influenced */}
+              <div style={styles.toggleItem}>
+                <label style={styles.toggleLabel}>
+                  <input
+                    type="checkbox"
+                    checked={trustSettings.allowCommunityInfluenced}
+                    onChange={(e) => setTrustSettings(prev => ({ ...prev, allowCommunityInfluenced: e.target.checked }))}
+                    disabled={disabled}
+                    style={styles.checkbox}
+                  />
+                  <span style={styles.toggleText}>Allow community-influenced suggestions</span>
+                  <Tooltip
+                    content="Includes recommendations informed by other travelers and locals."
+                    position="top"
+                  >
+                    <button
+                      type="button"
+                      style={styles.infoButton}
+                      aria-label="Learn more about community-influenced suggestions"
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={styles.infoIcon}>
+                        <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2"/>
+                        <path d="M12 16V12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                        <circle cx="12" cy="8" r="1" fill="currentColor"/>
+                      </svg>
+                    </button>
+                  </Tooltip>
+                </label>
+              </div>
             </div>
           </section>
 
-          {/* SECTION 2: AI Agent / LLM Selection */}
+          {/* SECTION 5: Transparency & Data - How recommendations work */}
           <section style={styles.section}>
+            <h3 style={styles.sectionTitle}>Transparency & Data</h3>
+            <div style={styles.sectionDescription}>
+              Control how recommendations are explained and how your feedback is used to improve future suggestions.
+            </div>
+            
+            <div style={styles.transparencyToggles}>
+              {/* Show Why Recommended */}
+              <div style={styles.toggleItem}>
+                <label style={styles.toggleLabel}>
+                  <input
+                    type="checkbox"
+                    checked={transparencySettings.showWhyRecommended}
+                    onChange={(e) => setTransparencySettings(prev => ({ ...prev, showWhyRecommended: e.target.checked }))}
+                    disabled={disabled}
+                    style={styles.checkbox}
+                  />
+                  <span style={styles.toggleText}>Show "Why this was recommended" explanations</span>
+                    <Tooltip
+                      content="Displays a short reason explaining why something was suggested."
+                      position="top"
+                    >
+                      <button
+                        type="button"
+                        style={styles.infoButton}
+                        aria-label="Learn more about recommendation explanations"
+                      >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={styles.infoIcon}>
+                          <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2"/>
+                          <path d="M12 16V12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                          <circle cx="12" cy="8" r="1" fill="currentColor"/>
+                        </svg>
+                      </button>
+                    </Tooltip>
+                </label>
+              </div>
+
+              {/* Help Improve */}
+              <div style={styles.toggleItem}>
+                <label style={styles.toggleLabel}>
+                  <input
+                    type="checkbox"
+                    checked={transparencySettings.helpImproveRecommendations}
+                    onChange={(e) => setTransparencySettings(prev => ({ ...prev, helpImproveRecommendations: e.target.checked }))}
+                    disabled={disabled}
+                    style={styles.checkbox}
+                  />
+                  <span style={styles.toggleText}>Help improve recommendations</span>
+                    <Tooltip
+                      content="All feedback is anonymous and used to improve future suggestions."
+                      position="top"
+                    >
+                      <button
+                        type="button"
+                        style={styles.infoButton}
+                        aria-label="Learn more about feedback"
+                      >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={styles.infoIcon}>
+                          <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2"/>
+                          <path d="M12 16V12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                          <circle cx="12" cy="8" r="1" fill="currentColor"/>
+                        </svg>
+                      </button>
+                    </Tooltip>
+                </label>
+              </div>
+            </div>
+
+            {/* Abuse Feedback Callout */}
+            <div style={styles.abuseCallout}>
+              <div style={styles.abuseCalloutText}>
+                <strong>Something feel off?</strong>
+                <br />
+                You can flag recommendations as outdated or irrelevant — no account required.
+              </div>
+            </div>
+          </section>
+
+          {/* SECTION 6: Content Sources - Informational */}
+          <section style={styles.section}>
+            <h3 style={styles.sectionTitle}>Content Sources</h3>
+            <div style={styles.sectionDescription}>
+              Understand where recommendations come from and how they're generated.
+            </div>
+            
+            <div style={styles.contentSources}>
+              <div style={styles.sourceItem}>
+                <div style={styles.sourceHeader}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={styles.sourceIcon}>
+                    <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    <path d="M2 17L12 22L22 17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    <path d="M2 12L12 17L22 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                  <span style={styles.sourceText}>AI-curated recommendations</span>
+                </div>
+              </div>
+              
+              <div style={styles.sourceItem}>
+                <div style={styles.sourceHeader}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={styles.sourceIcon}>
+                    <path d="M17 21V19C17 17.9391 16.5786 16.9217 15.8284 16.1716C15.0783 15.4214 14.0609 15 13 15H5C3.93913 15 2.92172 15.4214 2.17157 16.1716C1.42143 16.9217 1 17.9391 1 19V21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    <circle cx="9" cy="7" r="4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    <path d="M23 21V19C22.9993 18.1137 22.7044 17.2528 22.1614 16.5523C21.6184 15.8519 20.8581 15.3516 20 15.13" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    <path d="M16 3.13C16.8604 3.35031 17.623 3.85071 18.1676 4.55232C18.7122 5.25392 19.0078 6.11683 19.0078 7.005C19.0078 7.89318 18.7122 8.75608 18.1676 9.45769C17.623 10.1593 16.8604 10.6597 16 10.88" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                  <span style={styles.sourceText}>Community-influenced signals</span>
+                    <Tooltip
+                      content="Community-influenced signals are anonymized and aggregated — not reviews or posts."
+                      position="top"
+                    >
+                      <button
+                        type="button"
+                        style={styles.infoButton}
+                        aria-label="Learn more about community signals"
+                      >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={styles.infoIcon}>
+                          <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2"/>
+                          <path d="M12 16V12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                          <circle cx="12" cy="8" r="1" fill="currentColor"/>
+                        </svg>
+                      </button>
+                    </Tooltip>
+                  </div>
+              </div>
+              
+              <div style={styles.sourceItem}>
+                <div style={styles.sourceHeader}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={styles.sourceIcon}>
+                    <path d="M9 11L12 14L22 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    <path d="M21 12V19C21 19.5304 20.7893 20.0391 20.4142 20.4142C20.0391 20.7893 19.5304 21 19 21H5C4.46957 21 3.96086 20.7893 3.58579 20.4142C3.21071 20.0391 3 19.5304 3 19V5C3 4.46957 3.21071 3.96086 3.58579 3.58579C3.96086 3.21071 4.46957 3 5 3H16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                  <span style={styles.sourceText}>Context-verified activity data</span>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {/* SECTION 7: AI Agent / LLM Selection - Advanced/Technical (Progressive Disclosure) */}
+          <section style={{ ...styles.section, borderBottom: 'none' }}>
             <div style={styles.sectionHeader}>
               <h3 style={styles.sectionTitle}>AI Agent / LLM Selection</h3>
               <div style={styles.sectionDescription}>
-                Choose one or more AI models to generate recommendations. Multiple models can provide diverse perspectives.
+                Advanced: Choose one or more AI models to generate recommendations. Multiple models can provide diverse perspectives.
               </div>
             </div>
             
@@ -284,39 +677,41 @@ export default function SettingsModal({
                       <div style={styles.llmContent}>
                         <div style={styles.llmHeader}>
                           <span style={styles.llmName}>{llm.label}</span>
-                          <button
-                            type="button"
-                            style={styles.infoButton}
-                            onMouseEnter={() => setHoveredInfo(infoKey)}
-                            onMouseLeave={() => setHoveredInfo(null)}
-                            onTouchStart={() => setHoveredInfo(hoveredInfo === infoKey ? null : infoKey)}
-                            aria-label={`Learn more about ${llm.label}`}
+                          <Tooltip
+                            content={
+                              <div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                                  <span>Speed:</span>
+                                  <span style={{ fontWeight: '600' }}>{llm.speed}</span>
+                                </div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                                  <span>Creativity:</span>
+                                  <span style={{ fontWeight: '600' }}>{llm.creativity}</span>
+                                </div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', paddingBottom: '0.5rem', borderBottom: `1px solid rgba(255, 255, 255, 0.2)` }}>
+                                  <span>Cost:</span>
+                                  <span style={{ fontWeight: '600' }}>{llm.cost}</span>
+                                </div>
+                                <div style={{ fontSize: '0.75rem', opacity: 0.9 }}>{llm.characteristics}</div>
+                              </div>
+                            }
+                            position="top"
+                            maxWidth={240}
                           >
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={styles.infoIcon}>
-                              <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2"/>
-                              <path d="M12 16V12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                              <circle cx="12" cy="8" r="1" fill="currentColor"/>
-                            </svg>
-                          </button>
+                            <button
+                              type="button"
+                              style={styles.infoButton}
+                              aria-label={`Learn more about ${llm.label}`}
+                            >
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={styles.infoIcon}>
+                                <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2"/>
+                                <path d="M12 16V12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                                <circle cx="12" cy="8" r="1" fill="currentColor"/>
+                              </svg>
+                            </button>
+                          </Tooltip>
                         </div>
                         <span style={styles.llmDescription}>{llm.description}</span>
-                        {hoveredInfo === infoKey && (
-                          <div style={styles.llmTooltip}>
-                            <div style={styles.llmTooltipRow}>
-                              <span style={styles.llmTooltipLabel}>Speed:</span>
-                              <span style={styles.llmTooltipValue}>{llm.speed}</span>
-                            </div>
-                            <div style={styles.llmTooltipRow}>
-                              <span style={styles.llmTooltipLabel}>Creativity:</span>
-                              <span style={styles.llmTooltipValue}>{llm.creativity}</span>
-                            </div>
-                            <div style={styles.llmTooltipRow}>
-                              <span style={styles.llmTooltipLabel}>Cost:</span>
-                              <span style={styles.llmTooltipValue}>{llm.cost}</span>
-                            </div>
-                            <div style={styles.llmTooltipDescription}>{llm.characteristics}</div>
-                          </div>
-                        )}
                       </div>
                     </label>
                   </div>
@@ -334,264 +729,6 @@ export default function SettingsModal({
                 <span>Multiple models will be used in order of preference. If one fails, the next will be tried automatically.</span>
               </div>
             )}
-          </section>
-
-          {/* SECTION 3: Trust & Safety */}
-          <section style={styles.section}>
-            <div style={styles.sectionHeader}>
-              <h3 style={styles.sectionTitle}>Trust & Safety</h3>
-              <div style={styles.sectionDescription}>
-                Control how recommendations are filtered and verified.
-              </div>
-            </div>
-            
-            <div style={styles.trustToggles}>
-              {/* Prefer Highly Trusted */}
-              <div style={styles.toggleItem}>
-                <label style={styles.toggleLabel}>
-                  <input
-                    type="checkbox"
-                    checked={trustSettings.preferHighlyTrusted}
-                    onChange={(e) => setTrustSettings(prev => ({ ...prev, preferHighlyTrusted: e.target.checked }))}
-                    disabled={disabled}
-                    style={styles.checkbox}
-                  />
-                  <span style={styles.toggleText}>Prefer highly trusted recommendations</span>
-                  <button
-                    type="button"
-                    style={styles.infoButton}
-                    onMouseEnter={() => setHoveredInfo('prefer-trusted')}
-                    onMouseLeave={() => setHoveredInfo(null)}
-                    onTouchStart={() => setHoveredInfo(hoveredInfo === 'prefer-trusted' ? null : 'prefer-trusted')}
-                    aria-label="Learn more about highly trusted recommendations"
-                  >
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={styles.infoIcon}>
-                      <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2"/>
-                      <path d="M12 16V12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                      <circle cx="12" cy="8" r="1" fill="currentColor"/>
-                    </svg>
-                  </button>
-                </label>
-                {hoveredInfo === 'prefer-trusted' && (
-                  <div style={styles.microcopy}>
-                    Prioritizes suggestions with stronger verification signals.
-                  </div>
-                )}
-              </div>
-
-              {/* Include Recent Activity */}
-              <div style={styles.toggleItem}>
-                <label style={styles.toggleLabel}>
-                  <input
-                    type="checkbox"
-                    checked={trustSettings.includeRecentActivity}
-                    onChange={(e) => setTrustSettings(prev => ({ ...prev, includeRecentActivity: e.target.checked }))}
-                    disabled={disabled}
-                    style={styles.checkbox}
-                  />
-                  <span style={styles.toggleText}>Include real-time and recently active places</span>
-                  <button
-                    type="button"
-                    style={styles.infoButton}
-                    onMouseEnter={() => setHoveredInfo('recent-activity')}
-                    onMouseLeave={() => setHoveredInfo(null)}
-                    onTouchStart={() => setHoveredInfo(hoveredInfo === 'recent-activity' ? null : 'recent-activity')}
-                    aria-label="Learn more about recent activity"
-                  >
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={styles.infoIcon}>
-                      <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2"/>
-                      <path d="M12 16V12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                      <circle cx="12" cy="8" r="1" fill="currentColor"/>
-                    </svg>
-                  </button>
-                </label>
-                {hoveredInfo === 'recent-activity' && (
-                  <div style={styles.microcopy}>
-                    Helps avoid outdated or inactive recommendations.
-                  </div>
-                )}
-              </div>
-
-              {/* Allow Community Influenced */}
-              <div style={styles.toggleItem}>
-                <label style={styles.toggleLabel}>
-                  <input
-                    type="checkbox"
-                    checked={trustSettings.allowCommunityInfluenced}
-                    onChange={(e) => setTrustSettings(prev => ({ ...prev, allowCommunityInfluenced: e.target.checked }))}
-                    disabled={disabled}
-                    style={styles.checkbox}
-                  />
-                  <span style={styles.toggleText}>Allow community-influenced suggestions</span>
-                  <button
-                    type="button"
-                    style={styles.infoButton}
-                    onMouseEnter={() => setHoveredInfo('community')}
-                    onMouseLeave={() => setHoveredInfo(null)}
-                    onTouchStart={() => setHoveredInfo(hoveredInfo === 'community' ? null : 'community')}
-                    aria-label="Learn more about community-influenced suggestions"
-                  >
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={styles.infoIcon}>
-                      <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2"/>
-                      <path d="M12 16V12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                      <circle cx="12" cy="8" r="1" fill="currentColor"/>
-                    </svg>
-                  </button>
-                </label>
-                {hoveredInfo === 'community' && (
-                  <div style={styles.microcopy}>
-                    Includes recommendations informed by other travelers and locals.
-                  </div>
-                )}
-              </div>
-            </div>
-          </section>
-
-          {/* SECTION 3: Content Sources */}
-          <section style={styles.section}>
-            <h3 style={styles.sectionTitle}>Content Sources</h3>
-            <div style={styles.sectionDescription}>
-              Understand where recommendations come from.
-            </div>
-            
-            <div style={styles.contentSources}>
-              <div style={styles.sourceItem}>
-                <div style={styles.sourceHeader}>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={styles.sourceIcon}>
-                    <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                    <path d="M2 17L12 22L22 17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                    <path d="M2 12L12 17L22 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
-                  <span style={styles.sourceText}>AI-curated recommendations</span>
-                </div>
-              </div>
-              
-              <div style={styles.sourceItem}>
-                <div style={styles.sourceHeader}>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={styles.sourceIcon}>
-                    <path d="M17 21V19C17 17.9391 16.5786 16.9217 15.8284 16.1716C15.0783 15.4214 14.0609 15 13 15H5C3.93913 15 2.92172 15.4214 2.17157 16.1716C1.42143 16.9217 1 17.9391 1 19V21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                    <circle cx="9" cy="7" r="4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                    <path d="M23 21V19C22.9993 18.1137 22.7044 17.2528 22.1614 16.5523C21.6184 15.8519 20.8581 15.3516 20 15.13" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                    <path d="M16 3.13C16.8604 3.35031 17.623 3.85071 18.1676 4.55232C18.7122 5.25392 19.0078 6.11683 19.0078 7.005C19.0078 7.89318 18.7122 8.75608 18.1676 9.45769C17.623 10.1593 16.8604 10.6597 16 10.88" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
-                  <span style={styles.sourceText}>Community-influenced signals</span>
-                  <button
-                    type="button"
-                    style={styles.infoButton}
-                    onMouseEnter={() => setHoveredInfo('community-signals')}
-                    onMouseLeave={() => setHoveredInfo(null)}
-                    onTouchStart={() => setHoveredInfo(hoveredInfo === 'community-signals' ? null : 'community-signals')}
-                    aria-label="Learn more about community signals"
-                  >
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={styles.infoIcon}>
-                      <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2"/>
-                      <path d="M12 16V12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                      <circle cx="12" cy="8" r="1" fill="currentColor"/>
-                    </svg>
-                  </button>
-                </div>
-                {hoveredInfo === 'community-signals' && (
-                  <div style={styles.microcopy}>
-                    Community-influenced signals are anonymized and aggregated — not reviews or posts.
-                  </div>
-                )}
-              </div>
-              
-              <div style={styles.sourceItem}>
-                <div style={styles.sourceHeader}>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={styles.sourceIcon}>
-                    <path d="M9 11L12 14L22 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                    <path d="M21 12V19C21 19.5304 20.7893 20.0391 20.4142 20.4142C20.0391 20.7893 19.5304 21 19 21H5C4.46957 21 3.96086 20.7893 3.58579 20.4142C3.21071 20.0391 3 19.5304 3 19V5C3 4.46957 3.21071 3.96086 3.58579 3.58579C3.96086 3.21071 4.46957 3 5 3H16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
-                  <span style={styles.sourceText}>Context-verified activity data</span>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          {/* SECTION 5: Transparency & Data */}
-          <section style={{ ...styles.section, borderBottom: 'none' }}>
-            <h3 style={styles.sectionTitle}>Transparency & Data</h3>
-            <div style={styles.sectionDescription}>
-              Control how recommendations are explained and how your feedback is used.
-            </div>
-            
-            <div style={styles.transparencyToggles}>
-              {/* Show Why Recommended */}
-              <div style={styles.toggleItem}>
-                <label style={styles.toggleLabel}>
-                  <input
-                    type="checkbox"
-                    checked={transparencySettings.showWhyRecommended}
-                    onChange={(e) => setTransparencySettings(prev => ({ ...prev, showWhyRecommended: e.target.checked }))}
-                    disabled={disabled}
-                    style={styles.checkbox}
-                  />
-                  <span style={styles.toggleText}>Show "Why this was recommended" explanations</span>
-                  <button
-                    type="button"
-                    style={styles.infoButton}
-                    onMouseEnter={() => setHoveredInfo('why-recommended')}
-                    onMouseLeave={() => setHoveredInfo(null)}
-                    onTouchStart={() => setHoveredInfo(hoveredInfo === 'why-recommended' ? null : 'why-recommended')}
-                    aria-label="Learn more about recommendation explanations"
-                  >
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={styles.infoIcon}>
-                      <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2"/>
-                      <path d="M12 16V12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                      <circle cx="12" cy="8" r="1" fill="currentColor"/>
-                    </svg>
-                  </button>
-                </label>
-                {hoveredInfo === 'why-recommended' && (
-                  <div style={styles.microcopy}>
-                    Displays a short reason explaining why something was suggested.
-                  </div>
-                )}
-              </div>
-
-              {/* Help Improve */}
-              <div style={styles.toggleItem}>
-                <label style={styles.toggleLabel}>
-                  <input
-                    type="checkbox"
-                    checked={transparencySettings.helpImproveRecommendations}
-                    onChange={(e) => setTransparencySettings(prev => ({ ...prev, helpImproveRecommendations: e.target.checked }))}
-                    disabled={disabled}
-                    style={styles.checkbox}
-                  />
-                  <span style={styles.toggleText}>Help improve recommendations</span>
-                  <button
-                    type="button"
-                    style={styles.infoButton}
-                    onMouseEnter={() => setHoveredInfo('help-improve')}
-                    onMouseLeave={() => setHoveredInfo(null)}
-                    onTouchStart={() => setHoveredInfo(hoveredInfo === 'help-improve' ? null : 'help-improve')}
-                    aria-label="Learn more about feedback"
-                  >
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={styles.infoIcon}>
-                      <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2"/>
-                      <path d="M12 16V12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                      <circle cx="12" cy="8" r="1" fill="currentColor"/>
-                    </svg>
-                  </button>
-                </label>
-                {hoveredInfo === 'help-improve' && (
-                  <div style={styles.microcopy}>
-                    All feedback is anonymous and used to improve future suggestions.
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Abuse Feedback Callout */}
-            <div style={styles.abuseCallout}>
-              <div style={styles.abuseCalloutText}>
-                <strong>Something feel off?</strong>
-                <br />
-                You can flag recommendations as outdated or irrelevant — no account required.
-              </div>
-            </div>
           </section>
         </div>
 
@@ -933,6 +1070,10 @@ const styles: { [key: string]: React.CSSProperties } = {
     transition: 'background-color 0.2s',
     outline: 'none',
   },
+  buttonDisabled: {
+    opacity: 0.6,
+    cursor: 'not-allowed',
+  },
 };
 
 // Add hover and focus styles
@@ -947,16 +1088,13 @@ if (typeof document !== 'undefined') {
         color: ${colors.textPrimary} !important;
       }
       button[aria-label="Close settings"]:focus {
-        box-shadow: 0 0 0 3px rgba(15, 82, 186, 0.2) !important;
+        box-shadow: 0 0 0 3px rgba(29, 66, 137, 0.2) !important;
       }
       button[aria-label="Settings"]:hover:not(:disabled) {
         background-color: ${colors.bgHover} !important;
         color: ${colors.primary} !important;
       }
-      /* LLM Option hover */
-      [data-settings-modal] label[style*="llmLabel"]:hover {
-        background-color: ${colors.bgHover} !important;
-      }
+      /* LLM Option hover - removed, labels are not clickable */
       [data-settings-modal] label[style*="llmLabel"] input[type="checkbox"]:checked + div span:first-child {
         color: ${colors.primary} !important;
       }
@@ -964,7 +1102,7 @@ if (typeof document !== 'undefined') {
         background-color: ${colors.bgHover} !important;
       }
       button[aria-label="Settings"]:focus {
-        box-shadow: 0 0 0 3px rgba(15, 82, 186, 0.2) !important;
+        box-shadow: 0 0 0 3px rgba(29, 66, 137, 0.2) !important;
       }
       button[aria-label^="Learn more"]:hover {
         color: ${colors.textPrimary} !important;

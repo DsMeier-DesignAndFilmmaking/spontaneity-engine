@@ -255,7 +255,7 @@ if (typeof document !== 'undefined') {
       /* Select focus styles */
       select:focus {
         border-color: ${colors.primary} !important;
-        box-shadow: 0 0 0 3px rgba(15, 82, 186, 0.1) !important;
+        box-shadow: 0 0 0 3px rgba(29, 66, 137, 0.1) !important;
       }
       select:hover:not(:disabled) {
         border-color: ${colors.border} !important;

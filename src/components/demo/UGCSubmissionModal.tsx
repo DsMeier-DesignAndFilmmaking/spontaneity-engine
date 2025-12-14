@@ -24,6 +24,7 @@ export default function UGCSubmissionModal({
   defaultLocation = '',
 }: UGCSubmissionModalProps) {
   const [idea, setIdea] = useState('');
+  const [description, setDescription] = useState('');
   const [location, setLocation] = useState(defaultLocation);
   const [timing, setTiming] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -63,6 +64,7 @@ export default function UGCSubmissionModal({
         },
         body: JSON.stringify({
           idea: idea.trim(),
+          description: description.trim(),
           location: location.trim() || 'Nearby',
           timing: timing || 'Today',
         }),
@@ -76,6 +78,7 @@ export default function UGCSubmissionModal({
           onClose();
           // Reset form
           setIdea('');
+          setDescription('');
           setLocation(defaultLocation);
           setTiming('');
           setIsSubmitting(false);
@@ -122,9 +125,14 @@ export default function UGCSubmissionModal({
       {/* Modal */}
       <div style={modalStyles} role="dialog" aria-labelledby="ugc-modal-title">
         <div style={styles.modalHeader}>
-          <h2 id="ugc-modal-title" style={styles.modalTitle}>
-            Suggest something nearby
-          </h2>
+          <div style={styles.headerContent}>
+            <h2 id="ugc-modal-title" style={styles.modalTitle}>
+              Share Your Spontaneous Idea
+            </h2>
+            <p style={styles.modalSubtext}>
+              Help others spark their next adventure. Submit a quick activity for the community to discover.
+            </p>
+          </div>
           <button
             type="button"
             onClick={onClose}
@@ -151,10 +159,10 @@ export default function UGCSubmissionModal({
         </div>
 
         <form onSubmit={handleSubmit} style={styles.form}>
-          {/* Field 1: What's the idea? */}
+          {/* Field 1: Spontaneous Headline */}
           <div style={styles.fieldGroup}>
             <label htmlFor="ugc-idea" style={styles.label}>
-              What's the idea?
+              Spontaneous Headline
             </label>
             <textarea
               id="ugc-idea"
@@ -163,7 +171,7 @@ export default function UGCSubmissionModal({
               placeholder="Example: Sunset view from the hill behind the old fort"
               style={styles.textarea}
               maxLength={200}
-              rows={4}
+              rows={3}
               required
               disabled={isSubmitting}
             />
@@ -172,7 +180,27 @@ export default function UGCSubmissionModal({
             </div>
           </div>
 
-          {/* Field 2: Location */}
+          {/* Field 2: Description (optional) */}
+          <div style={styles.fieldGroup}>
+            <label htmlFor="ugc-description" style={styles.label}>
+              Description <span style={styles.optional}>(optional)</span>
+            </label>
+            <textarea
+              id="ugc-description"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Add more details about this spontaneous idea..."
+              style={styles.textarea}
+              maxLength={500}
+              rows={4}
+              disabled={isSubmitting}
+            />
+            <div style={styles.characterCount}>
+              {description.length}/500
+            </div>
+          </div>
+
+          {/* Field 3: Location */}
           <div style={styles.fieldGroup}>
             <label htmlFor="ugc-location" style={styles.label}>
               Location
@@ -188,7 +216,7 @@ export default function UGCSubmissionModal({
             />
           </div>
 
-          {/* Field 3: Timing (optional) */}
+          {/* Field 4: Timing (optional) */}
           <div style={styles.fieldGroup}>
             <label htmlFor="ugc-timing" style={styles.label}>
               Timing <span style={styles.optional}>(optional)</span>
@@ -281,14 +309,27 @@ const styles: { [key: string]: React.CSSProperties } = {
   modalHeader: {
     display: 'flex',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     padding: '1.5rem',
     borderBottom: `1px solid ${colors.border}`,
+    gap: '1rem',
+  },
+  headerContent: {
+    flex: 1,
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '0.5rem',
   },
   modalTitle: {
     fontSize: '1.25rem',
     fontWeight: '600',
     color: colors.textPrimary,
+    margin: 0,
+  },
+  modalSubtext: {
+    fontSize: '0.875rem',
+    color: colors.textSecondary,
+    lineHeight: '1.5',
     margin: 0,
   },
   closeButton: {
@@ -421,10 +462,11 @@ if (typeof document !== 'undefined') {
     style.id = styleId;
     style.textContent = `
       #ugc-idea:focus,
+      #ugc-description:focus,
       #ugc-location:focus,
       #ugc-timing:focus {
         border-color: ${colors.primary} !important;
-        box-shadow: 0 0 0 3px rgba(15, 82, 186, 0.1) !important;
+        box-shadow: 0 0 0 3px rgba(29, 66, 137, 0.1) !important;
       }
       button[aria-label="Close"]:hover {
         background-color: ${colors.bgHover} !important;

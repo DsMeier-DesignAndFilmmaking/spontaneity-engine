@@ -10,6 +10,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import colors from '@/lib/design/colors';
 import { getTrustBadgeData, TrustMetadata } from '@/lib/moderation/contentModeration';
 import UGCSubmissionModal from './UGCSubmissionModal';
+import RecommendationCard from './RecommendationCard';
+import FallbackRecommendationMockup from './FallbackRecommendationMockup';
 
 export interface RecommendationDisplayProps {
   resultJson: string;
@@ -21,7 +23,100 @@ export interface RecommendationDisplayProps {
   };
   onRegenerate?: () => void;
   onAdjustVibes?: () => void;
+  onRefineAdventure?: () => void;
   loading?: boolean;
+  isNewlyGenerated?: boolean;
+}
+
+/**
+ * Validates recommendation data to check if it's valid and properly formatted
+ * Returns false if the recommendation should trigger the fallback mockup
+ */
+function isValidRecommendation(data: {
+  title?: string;
+  activityName?: string;
+  activityRealtimeStatus?: 'open' | 'closed' | 'unknown';
+  raw?: any;
+}): { isValid: boolean; reason?: string } {
+  // CRITICAL CHECK A: Check for missing or unformatted title (parameter leakage)
+  const displayTitle = data.activityName || data.title || '';
+  if (!displayTitle || displayTitle.trim().length === 0) {
+    console.error('[Validation Failed] Missing title');
+    return { isValid: false, reason: 'Missing title' };
+  }
+  
+  // CRITICAL CHECK B: Check for parameter leakage in title (e.g., [Context:...])
+  // Check if title contains context metadata patterns
+  const hasContextLeakage = displayTitle.includes('[Context:') || 
+                            displayTitle.includes('[Role:') || 
+                            displayTitle.includes('[Mood:') ||
+                            displayTitle.includes('Role=') ||
+                            displayTitle.includes('Mood=') ||
+                            displayTitle.includes('Group=');
+  
+  if (hasContextLeakage) {
+    // Check if the title is primarily or entirely context metadata
+    const isOnlyContext = displayTitle.trim().startsWith('[') && 
+                         (displayTitle.includes('Context:') || displayTitle.includes('Role='));
+    const isContextHeavy = displayTitle.split('[').length > 2; // Multiple context blocks
+    
+    if (isOnlyContext || isContextHeavy) {
+      console.error('[Validation Failed] Raw parameter leakage detected in title:', displayTitle);
+      return { isValid: false, reason: 'Unformatted title - parameter leakage detected' };
+    }
+    
+    // If title starts with a word but contains context, still flag it
+    const titleWords = displayTitle.split(' ').filter(w => !w.includes('[') && !w.includes('='));
+    if (titleWords.length < 2) {
+      console.error('[Validation Failed] Title has insufficient content, mostly context metadata:', displayTitle);
+      return { isValid: false, reason: 'Unformatted title - parameter leakage detected' };
+    }
+  }
+  
+  // CRITICAL CHECK C: Check for closed status in multiple places
+  // Check parsed status field
+  if (data.activityRealtimeStatus === 'closed') {
+    console.error('[Validation Failed] Recommendation status is "Closed"');
+    return { isValid: false, reason: 'Status was "Closed"' };
+  }
+  
+  // Check raw data for closed status in various formats
+  if (data.raw) {
+    // Check status field in raw data
+    const rawStatus = data.raw.status || data.raw.activity_realtime_status || data.raw.realtime_status;
+    if (rawStatus === 'closed' || rawStatus === 'Closed' || rawStatus === 'CLOSED') {
+      console.error('[Validation Failed] Raw data indicates closed status:', rawStatus);
+      return { isValid: false, reason: 'Status was "Closed"' };
+    }
+    
+    // Check for unavailable flags
+    if (data.raw.is_unavailable === true || 
+        data.raw.unavailable === true ||
+        data.raw.isUnavailable === true) {
+      console.error('[Validation Failed] Activity marked as unavailable');
+      return { isValid: false, reason: 'Activity marked as unavailable' };
+    }
+    
+    // Check if title in raw data contains "Closed"
+    const rawTitle = data.raw.title || data.raw.activity_name || data.raw.name || '';
+    if (rawTitle && typeof rawTitle === 'string' && rawTitle.toLowerCase().includes('closed')) {
+      console.error('[Validation Failed] Title contains "Closed" indicator:', rawTitle);
+      return { isValid: false, reason: 'Status was "Closed"' };
+    }
+    
+    // Check description/recommendation for "closed" mentions
+    const rawDescription = data.raw.recommendation || data.raw.description || '';
+    if (rawDescription && typeof rawDescription === 'string') {
+      const closedPattern = /\b(closed|closes? at|not open|unavailable)\b/i;
+      if (closedPattern.test(rawDescription) && !rawDescription.toLowerCase().includes('open')) {
+        console.error('[Validation Failed] Description indicates closed status');
+        return { isValid: false, reason: 'Status was "Closed"' };
+      }
+    }
+  }
+  
+  // All checks passed
+  return { isValid: true };
 }
 
 /**
@@ -40,6 +135,15 @@ function parseRecommendation(jsonString: string): {
   reasoning?: string;
   trustMetadata?: TrustMetadata | null;
   whyNow?: string;
+  // Card-specific fields
+  activityName?: string;
+  activityDistanceMi?: number;
+  activityDriveTimeMin?: number;
+  activityDurationEstimate?: string;
+  activityRealtimeStatus?: 'open' | 'closed' | 'unknown';
+  activityRatingAggregate?: number;
+  activityPriceTier?: 1 | 2 | 3 | 4;
+  activityImageUrl?: string;
   raw: any;
 } {
   try {
@@ -72,6 +176,32 @@ function parseRecommendation(jsonString: string): {
     // Extract "Why This Now?" micro-explanation (SERVER-SIDE GENERATED)
     const whyNow = parsed.why_now || null;
     
+    // Extract card-specific fields
+    const activityName = parsed.activity_name || parsed.name || title;
+    const activityDistanceMi = parsed.activity_distance_mi !== undefined ? Number(parsed.activity_distance_mi) : undefined;
+    const activityDriveTimeMin = parsed.activity_drive_time_min !== undefined ? Number(parsed.activity_drive_time_min) : undefined;
+    const activityDurationEstimate = parsed.activity_duration_estimate || duration;
+    const activityRealtimeStatus = parsed.activity_realtime_status === 'open' ? 'open' : 
+                                   parsed.activity_realtime_status === 'closed' ? 'closed' : 'unknown';
+    const activityRatingAggregate = parsed.activity_rating_aggregate !== undefined ? Number(parsed.activity_rating_aggregate) : undefined;
+    // Convert price tier: $=1, $$=2, $$$=3, $$$$=4
+    let activityPriceTier: 1 | 2 | 3 | 4 | undefined;
+    if (parsed.activity_price_tier) {
+      const tier = typeof parsed.activity_price_tier === 'string' 
+        ? parsed.activity_price_tier.length 
+        : Number(parsed.activity_price_tier);
+      if (tier >= 1 && tier <= 4) {
+        activityPriceTier = tier as 1 | 2 | 3 | 4;
+      }
+    } else if (cost) {
+      // Try to infer from cost string
+      const dollarCount = (cost.match(/\$/g) || []).length;
+      if (dollarCount >= 1 && dollarCount <= 4) {
+        activityPriceTier = dollarCount as 1 | 2 | 3 | 4;
+      }
+    }
+    const activityImageUrl = parsed.activity_image_url || parsed.image_url || parsed.image;
+    
     return {
       title,
       summary,
@@ -85,6 +215,15 @@ function parseRecommendation(jsonString: string): {
       reasoning,
       trustMetadata,
       whyNow,
+      // Card fields
+      activityName,
+      activityDistanceMi,
+      activityDriveTimeMin,
+      activityDurationEstimate,
+      activityRealtimeStatus,
+      activityRatingAggregate,
+      activityPriceTier,
+      activityImageUrl,
       raw: parsed,
     };
   } catch (error) {
@@ -106,7 +245,9 @@ export default function RecommendationDisplay({
   userInput,
   onRegenerate,
   onAdjustVibes,
+  onRefineAdventure,
   loading = false,
+  isNewlyGenerated = false,
 }: RecommendationDisplayProps) {
   const [showRawJson, setShowRawJson] = useState(false);
   const [showTrustDetails, setShowTrustDetails] = useState(false);
@@ -117,6 +258,38 @@ export default function RecommendationDisplay({
   const abuseSignalRef = useRef<HTMLDivElement>(null);
   const whyNowRef = useRef<HTMLDivElement>(null);
   const data = parseRecommendation(resultJson);
+
+  // Validate recommendation - check if we should show fallback mockup
+  const validation = isValidRecommendation(data);
+  const shouldShowFallback = !validation.isValid;
+
+  // Log validation failure for debugging (only once, not on every render)
+  useEffect(() => {
+    if (shouldShowFallback && validation.reason) {
+      // Use console.log instead of console.warn to reduce noise
+      console.log('[RecommendationDisplay] Showing fallback - Reason:', validation.reason);
+    }
+  }, [shouldShowFallback, validation.reason]);
+
+  // If validation fails, show fallback mockup
+  if (shouldShowFallback) {
+    return (
+      <FallbackRecommendationMockup
+        onRefineAdventure={onRefineAdventure}
+        failureReason={validation.reason}
+      />
+    );
+  }
+
+  // Check if we have card-specific data to use the new card format
+  const hasCardData = data.activityName && (
+    data.activityDistanceMi !== undefined || 
+    data.activityDriveTimeMin !== undefined || 
+    data.activityDurationEstimate || 
+    data.activityRealtimeStatus !== 'unknown' ||
+    data.activityRatingAggregate !== undefined ||
+    data.activityPriceTier !== undefined
+  );
 
   // Close abuse options on click outside
   useEffect(() => {
@@ -278,6 +451,94 @@ export default function RecommendationDisplay({
     return bullets.slice(0, 3); // Limit to 3 bullets
   };
 
+  // If we have card data, use the new RecommendationCard component
+  if (hasCardData) {
+    return (
+      <div 
+        style={{
+          ...styles.container,
+          ...(isNewlyGenerated ? styles.containerNewlyGenerated : {}),
+        }} 
+        data-recommendation-display
+        className={isNewlyGenerated ? 'recommendation-newly-generated' : ''}
+      >
+        {isNewlyGenerated && (
+          <div style={styles.successBadge}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={styles.successIcon}>
+              <path
+                d="M20 6L9 17L4 12"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+            <span>Recommendation Generated</span>
+          </div>
+        )}
+        <RecommendationCard
+          activityName={data.activityName || data.title || 'Activity'}
+          activityDistanceMi={data.activityDistanceMi}
+          activityDriveTimeMin={data.activityDriveTimeMin}
+          activityDurationEstimate={data.activityDurationEstimate}
+          activityRealtimeStatus={data.activityRealtimeStatus}
+          activityRatingAggregate={data.activityRatingAggregate}
+          activityPriceTier={data.activityPriceTier}
+          activityImageUrl={data.activityImageUrl}
+          showImage={true} // Can be configured via SDK
+          onDetailsClick={() => {
+            // Fallback: Expand to full view if navigation fails
+            setShowRawJson(true);
+          }}
+          primaryActionLabel="Details"
+          isNewlyGenerated={isNewlyGenerated}
+          recommendationId={resultId || undefined}
+          onRefineAdventure={onRefineAdventure}
+          onCommitAdventure={() => {
+            // Handle commit action
+            console.log('Adventure committed:', resultId);
+          }}
+          // Pass additional data for details modal
+          detailsData={{
+            title: data.title,
+            activityName: data.activityName || data.title,
+            address: data.location,
+            location: data.location,
+            mapLink: data.raw?.map_link || data.raw?.mapLink,
+            activityRealtimeStatus: data.activityRealtimeStatus,
+            activityRatingAggregate: data.activityRatingAggregate,
+            reviewCount: data.raw?.review_count || data.raw?.reviewCount,
+            activityDurationEstimate: data.activityDurationEstimate,
+            duration: data.duration,
+            activityPriceTier: data.activityPriceTier,
+            cost: data.cost,
+            tags: data.raw?.tags || (data.raw?.vibe ? data.raw.vibe.split(',').map((t: string) => t.trim()) : []),
+            vibe: data.raw?.vibe || userInput?.vibe,
+            activityImageUrl: data.activityImageUrl,
+            activityDistanceMi: data.activityDistanceMi,
+            activityDriveTimeMin: data.activityDriveTimeMin,
+          }}
+        />
+        
+        {/* Refine Adventure Button */}
+        {onRefineAdventure && (
+          <div style={styles.refineAdventureContainer}>
+            <button
+              type="button"
+              onClick={onRefineAdventure}
+              style={styles.refineAdventureButton}
+              aria-label="Refine adventure"
+              disabled={loading}
+            >
+              Refine Adventure
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // Fallback to original detailed display if card data not available
   return (
     <div style={styles.container} data-recommendation-display>
       {/* Primary Recommendation Summary */}
@@ -505,37 +766,41 @@ export default function RecommendationDisplay({
 
       {/* Optional Actions */}
       <div style={styles.actionsSection}>
-        <button
-          type="button"
-          onClick={onRegenerate}
-          disabled={loading || !onRegenerate}
-          style={{
-            ...styles.actionButton,
-            ...(loading || !onRegenerate ? styles.actionButtonDisabled : styles.actionButtonEnabled),
-          }}
-          aria-label="Regenerate recommendation"
-        >
-          {loading ? (
-            <>
-              <span style={styles.spinner}>⟳</span>
-              <span>Regenerating...</span>
-            </>
-          ) : (
-            'Regenerate'
-          )}
-        </button>
-        <button
-          type="button"
-          onClick={onAdjustVibes}
-          disabled={loading || !onAdjustVibes}
-          style={{
-            ...styles.actionButton,
-            ...(loading || !onAdjustVibes ? styles.actionButtonDisabled : styles.actionButtonEnabled),
-          }}
-          aria-label="Adjust vibes and preferences"
-        >
-          Adjust Vibes
-        </button>
+        {onRegenerate && (
+          <button
+            type="button"
+            onClick={onRegenerate}
+            disabled={loading}
+            style={{
+              ...styles.actionButton,
+              ...(loading ? styles.actionButtonDisabled : styles.actionButtonEnabled),
+            }}
+            aria-label="Regenerate recommendation"
+          >
+            {loading ? (
+              <>
+                <span style={styles.spinner}>⟳</span>
+                <span>Regenerating...</span>
+              </>
+            ) : (
+              'Regenerate'
+            )}
+          </button>
+        )}
+        {onRefineAdventure && (
+          <button
+            type="button"
+            onClick={onRefineAdventure}
+            disabled={loading}
+            style={{
+              ...styles.actionButton,
+              ...(loading ? styles.actionButtonDisabled : styles.actionButtonSecondary),
+            }}
+            aria-label="Refine adventure"
+          >
+            Refine Adventure
+          </button>
+        )}
       </div>
 
       {/* UGC Submission Modal */}
@@ -578,6 +843,30 @@ const styles: { [key: string]: React.CSSProperties } = {
     display: 'flex',
     flexDirection: 'column',
     gap: '1.5rem',
+    position: 'relative',
+  },
+  containerNewlyGenerated: {
+    animation: 'fadeInUp 0.6s ease-out',
+  },
+  successBadge: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.5rem',
+    padding: '0.625rem 1rem',
+    backgroundColor: `var(--sdk-bg-accent, ${colors.bgAccent})`,
+    border: `2px solid var(--sdk-primary-color, ${colors.primary})`,
+    borderRadius: '8px',
+    marginBottom: '1rem',
+    fontSize: '0.875rem',
+    fontWeight: '600',
+    color: `var(--sdk-primary-color, ${colors.primary})`,
+    animation: 'slideInDown 0.4s ease-out',
+  },
+  successIcon: {
+    width: '16px',
+    height: '16px',
+    color: `var(--sdk-primary-color, ${colors.primary})`,
+    flexShrink: 0,
   },
   summarySection: {
     paddingBottom: '1.5rem',
@@ -848,9 +1137,9 @@ const styles: { [key: string]: React.CSSProperties } = {
     padding: '0.625rem 1.25rem',
     fontSize: '0.875rem',
     fontWeight: '600',
-    border: `1px solid ${colors.border}`,
+    border: `1px solid var(--sdk-border-color, ${colors.border})`,
     borderRadius: '0.5rem',
-    transition: 'all 0.2s',
+    transition: 'all 0.2s ease-in-out',
     outline: 'none',
     flex: 1,
     display: 'flex',
@@ -859,9 +1148,9 @@ const styles: { [key: string]: React.CSSProperties } = {
     gap: '0.5rem',
   },
   actionButtonEnabled: {
-    backgroundColor: colors.primary,
-    color: '#ffffff',
-    borderColor: colors.primary,
+    backgroundColor: 'var(--sdk-primary-color, ' + colors.primary + ')',
+    color: 'var(--sdk-text-inverse, #ffffff)',
+    borderColor: 'var(--sdk-primary-color, ' + colors.primary + ')',
     cursor: 'pointer',
     opacity: 1,
   },
@@ -915,7 +1204,72 @@ const styles: { [key: string]: React.CSSProperties } = {
     whiteSpace: 'pre-wrap',
     wordBreak: 'break-word',
   },
+  refineAdventureContainer: {
+    marginTop: '1rem',
+    paddingTop: '1rem',
+    borderTop: `1px solid ${colors.border}`,
+    textAlign: 'center',
+  },
+  refineAdventureButton: {
+    backgroundColor: 'transparent',
+    border: `2px solid var(--sdk-primary-color, ${colors.primary})`,
+    color: 'var(--sdk-primary-color, ' + colors.primary + ')',
+    fontSize: '0.875rem',
+    fontWeight: '600',
+    cursor: 'pointer',
+    padding: '0.625rem 1.25rem',
+    borderRadius: '8px',
+    transition: 'all 0.2s ease-in-out',
+    outline: 'none',
+  },
+  actionButtonSecondary: {
+    backgroundColor: 'transparent',
+    color: 'var(--sdk-primary-color, ' + colors.primary + ')',
+    borderColor: 'var(--sdk-primary-color, ' + colors.primary + ')',
+    cursor: 'pointer',
+    opacity: 1,
+  },
 };
+
+// Add animations for newly generated recommendations
+if (typeof document !== 'undefined') {
+  const styleId = 'recommendation-display-animations';
+  if (!document.getElementById(styleId)) {
+    const style = document.createElement('style');
+    style.id = styleId;
+    style.textContent = `
+      @keyframes fadeInUp {
+        from {
+          opacity: 0;
+          transform: translateY(20px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+      @keyframes slideInDown {
+        from {
+          opacity: 0;
+          transform: translateY(-10px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+      .recommendation-newly-generated {
+        animation: fadeInUp 0.6s ease-out;
+      }
+      .recommendation-result-container {
+        scroll-margin-top: 20px;
+      }
+    `;
+    if (document.head) {
+      document.head.appendChild(style);
+    }
+  }
+}
 
 // Add hover effect and responsive styles
 if (typeof document !== 'undefined') {
@@ -961,24 +1315,43 @@ if (typeof document !== 'undefined') {
       }
       /* UGC Button hover */
       [data-recommendation-display] button[aria-label="Suggest something nearby"]:hover {
-        background-color: ${colors.bgAccent} !important;
-        border-color: ${colors.hover} !important;
-        color: ${colors.hover} !important;
+        background-color: var(--sdk-bg-accent, ${colors.bgAccent}) !important;
+        border-color: var(--sdk-hover-color, ${colors.hover}) !important;
+        color: var(--sdk-hover-color, ${colors.hover}) !important;
       }
       [data-recommendation-display] button[aria-label="Suggest something nearby"]:focus {
         outline: 2px solid ${colors.primary};
         outline-offset: 2px;
       }
       /* Action Buttons hover */
-      [data-recommendation-display] button[aria-label="Regenerate recommendation"]:not(:disabled):hover,
-      [data-recommendation-display] button[aria-label="Adjust vibes and preferences"]:not(:disabled):hover {
-        opacity: 0.9 !important;
+      [data-recommendation-display] button[aria-label="Regenerate recommendation"]:not(:disabled):hover {
+        background-color: var(--sdk-hover-color, ${colors.hover}) !important;
+        transform: translateY(-1px);
+      }
+      [data-recommendation-display] button[aria-label="Refine adventure"]:not(:disabled):hover {
+        background-color: var(--sdk-bg-accent, ${colors.bgAccent}) !important;
+        border-color: var(--sdk-hover-color, ${colors.hover}) !important;
+        color: var(--sdk-hover-color, ${colors.hover}) !important;
         transform: translateY(-1px);
       }
       [data-recommendation-display] button[aria-label="Regenerate recommendation"]:not(:disabled):focus,
-      [data-recommendation-display] button[aria-label="Adjust vibes and preferences"]:not(:disabled):focus {
-        outline: 2px solid ${colors.primary};
+      [data-recommendation-display] button[aria-label="Refine adventure"]:not(:disabled):focus {
+        outline: 2px solid var(--sdk-primary-color, ${colors.primary});
         outline-offset: 2px;
+      }
+      /* Refine Adventure button hover */
+      [data-recommendation-display] button[aria-label="Refine adventure"]:hover:not(:disabled) {
+        background-color: var(--sdk-bg-accent, ${colors.bgAccent}) !important;
+        border-color: var(--sdk-hover-color, ${colors.hover}) !important;
+        color: var(--sdk-hover-color, ${colors.hover}) !important;
+      }
+      [data-recommendation-display] button[aria-label="Refine adventure"]:focus {
+        outline: 2px solid var(--sdk-primary-color, ${colors.primary});
+        outline-offset: 2px;
+      }
+      [data-recommendation-display] button[aria-label="Refine adventure"]:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
       }
       /* Mobile responsive adjustments */
       @media (max-width: 640px) {

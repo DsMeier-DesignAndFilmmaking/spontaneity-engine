@@ -242,7 +242,7 @@ const styles: { [key: string]: React.CSSProperties } = {
     cursor: 'pointer',
     transition: 'all 0.2s',
     outline: 'none',
-    boxShadow: `0 2px 8px rgba(15, 82, 186, 0.3)`,
+    boxShadow: `0 2px 8px rgba(29, 66, 137, 0.3)`,
   },
   buttonIcon: {
     fontSize: '1.25rem',

@@ -3,6 +3,32 @@
  * Global styles for the Spontaneity Engine application.
  */
 
+/* --- SDK Global Style Variables --- */
+:root {
+  /* Primary color (Static Button/Link Color) */
+  --sdk-primary-color: #1D4289; /* Deep Navy Blue - AAA Highly accessible (9.1:1 contrast ratio) */
+  
+  /* Global hover state color */
+  --sdk-hover-color: #16336B; /* Dark Indigo - AAA Highly accessible (11.2:1 contrast ratio) */
+  
+  /* Text colors */
+  --sdk-text-color: #222222; /* Dark Gray/Black - AAA contrast against Off-White background */
+  --sdk-text-default: #222222; /* Alias for text-color - Dark text for WCAG compliance on light background */
+  --sdk-text-inverse: #FFFFFF; /* White */
+  --sdk-text-secondary: #4B5563; /* Muted text */
+  --sdk-text-muted: #9CA3AF; /* Very muted text */
+  
+  /* Background colors */
+  --sdk-bg-color: #FAFAFA; /* Off-White/Clean White - Provides clean, modern canvas */
+  --sdk-bg-hover: #F3F4F6; /* Subtle hover background */
+  --sdk-bg-accent: #EDF4FF; /* Light blue accent */
+  --sdk-ui-background-light: #FAFAFA; /* Light background for static chip state (Off-White) */
+  
+  /* Border color */
+  --sdk-border-color: #E0E0E0; /* Gray */
+  --sdk-border-default: #E0E0E0; /* Alias for border-color */
+}
+
 * {
   box-sizing: border-box;
   margin: 0;
@@ -21,5 +47,14 @@ body {
 code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
     monospace;
+}
+
+/* --- Global Transition for Interactive Elements --- */
+/* Apply smooth transitions to all interactive SDK components */
+button,
+a,
+[role="button"],
+[tabindex="0"] {
+  transition: all 0.2s ease-in-out;
 }
 

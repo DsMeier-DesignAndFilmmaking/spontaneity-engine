@@ -126,9 +126,16 @@ export class OpenAIAdapter implements IModelAdapter {
       // Build system prompt for structured JSON output
       const systemPrompt = `You are a spontaneous travel and activity recommendation assistant. 
 Generate creative, local, and engaging micro-adventure suggestions based on user preferences.
+
+CRITICAL REQUIREMENTS:
+1. The "title" field MUST be a clean, user-facing title. NEVER include internal metadata like [Context:...], [Role:...], or [Mood:...] in the title.
+2. ONLY recommend activities that are CURRENTLY OPEN and will remain open for the requested duration.
+3. If an activity would be closed, do not recommend it. Only suggest venues/activities that are open now.
+4. The title should be engaging and descriptive, not technical or containing parameter references.
+
 Always respond with valid JSON in this exact structure:
 {
-  "title": "Short, engaging title (max 60 chars)",
+  "title": "Short, engaging title (max 60 chars) - NO metadata or context tags",
   "recommendation": "1-2 sentence description of the activity",
   "description": "Detailed 2-3 sentence description of what the user will experience",
   "activities": [
@@ -144,7 +151,8 @@ Always respond with valid JSON in this exact structure:
   "location": "Location context",
   "indoor_outdoor": "Indoor|Outdoor|Mixed",
   "group_friendly": true|false,
-  "reasoning": "Why this fits their request"
+  "reasoning": "Why this fits their request",
+  "activity_realtime_status": "open" (MUST be "open" - never "closed")
 }`;
 
       // Prepare messages for chat completion

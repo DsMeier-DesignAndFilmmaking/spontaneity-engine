@@ -243,9 +243,6 @@ if (typeof document !== 'undefined') {
         outline: 2px solid #667eea;
         outline-offset: 2px;
       }
-      label[style*="option"]:hover {
-        background-color: #f3f4f6 !important;
-      }
     `;
     if (document.head) {
       document.head.appendChild(style);

@@ -18,6 +18,47 @@ export default function App({ Component, pageProps }: AppProps) {
     initializeAnalytics();
   }, []);
 
+  // Suppress known browser extension errors that are not actionable
+  useEffect(() => {
+    const handleError = (event: ErrorEvent) => {
+      // Suppress the common browser extension message channel error
+      // This error occurs when extensions inject scripts and the message channel closes
+      // before a response is received - it's not actionable and just creates noise
+      if (
+        event.message &&
+        typeof event.message === 'string' &&
+        (event.message.includes('message channel closed') ||
+         event.message.includes('asynchronous response by returning true'))
+      ) {
+        event.preventDefault();
+        return false;
+      }
+    };
+
+    const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
+      // Suppress the same error when it appears as an unhandled promise rejection
+      if (
+        event.reason &&
+        typeof event.reason === 'object' &&
+        'message' in event.reason &&
+        typeof event.reason.message === 'string' &&
+        (event.reason.message.includes('message channel closed') ||
+         event.reason.message.includes('asynchronous response by returning true'))
+      ) {
+        event.preventDefault();
+        return false;
+      }
+    };
+
+    window.addEventListener('error', handleError);
+    window.addEventListener('unhandledrejection', handleUnhandledRejection);
+
+    return () => {
+      window.removeEventListener('error', handleError);
+      window.removeEventListener('unhandledrejection', handleUnhandledRejection);
+    };
+  }, []);
+
   return (
     <AuthProvider>
       <Component {...pageProps} />

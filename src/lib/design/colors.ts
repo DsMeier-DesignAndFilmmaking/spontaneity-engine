@@ -11,25 +11,25 @@
  * Core Brand Colors
  */
 export const brand = {
-  /** Primary Accent: Deep Sapphire (#0F52BA) - Primary CTAs, branding, key navigational highlights, B2B dashboards */
-  primary: '#0F52BA',
+  /** Primary Accent: Deep Navy Blue (#1D4289) - Primary CTAs, branding, key navigational highlights, B2B dashboards - AAA Highly accessible (9.1:1 contrast ratio) */
+  primary: '#1D4289',
   
   /** Secondary Accent: Chartreuse Green (#7FFF00) - Success messages, optimal routes, savings, highlighted actions */
   secondary: '#7FFF00',
   
-  /** Base Background: Light Gray (#F5F5F5) - Neutral backdrop for cards, app background, complex UI displays */
-  base: '#F5F5F5',
+  /** Base Background: Off-White/Clean White (#FAFAFA) - Provides clean, modern canvas that is softer than pure white */
+  base: '#FAFAFA',
   
-  /** Neutral Text: Dark Navy (#191970) - Primary body text, headings, titles, documentation */
-  text: '#191970',
+  /** Neutral Text: Dark Gray/Black (#222222) - Primary body text, headings, titles, documentation - AAA contrast against Off-White background */
+  text: '#222222',
 } as const;
 
 /**
  * Supporting Colors / UI States
  */
 export const ui = {
-  /** Hover / Interactive: Lighter Sapphire (#3165D6) - Button hover, tab hover, Quick Actions hover */
-  hover: '#3165D6',
+  /** Hover / Interactive: Dark Indigo (#16336B) - Button hover, tab hover, Quick Actions hover - AAA Highly accessible (11.2:1 contrast ratio) */
+  hover: '#16336B',
   
   /** Focus / Selected: Medium Chartreuse (#9AFF33) - Selected dropdown items, selected vibes/chips, interactive highlights */
   focus: '#9AFF33',
@@ -62,7 +62,7 @@ export const colors = {
   
   // Background
   bgBase: brand.base,
-  bgPrimary: '#FFFFFF', // White background for cards
+  bgPrimary: '#FAFAFA', // Off-White/Clean White background for cards
   bgAccent: ui.bgAccent,
   bgHover: '#F3F4F6', // Subtle hover background
   

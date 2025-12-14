@@ -400,12 +400,12 @@ const styles: { [key: string]: React.CSSProperties } = {
     padding: '0.75rem 1.5rem',
     fontSize: '0.875rem',
     fontWeight: '600',
-    backgroundColor: colors.primary,
-    color: colors.textInverse,
+    backgroundColor: 'var(--sdk-primary-color, ' + colors.primary + ')',
+    color: 'var(--sdk-text-inverse, ' + colors.textInverse + ')',
     border: 'none',
     borderRadius: '6px',
     cursor: 'pointer',
-    transition: 'all 0.2s',
+    transition: 'all 0.2s ease-in-out',
     outline: 'none',
     display: 'flex',
     alignItems: 'center',
@@ -446,7 +446,7 @@ const styles: { [key: string]: React.CSSProperties } = {
     alignItems: 'center',
     gap: '0.75rem',
     textAlign: 'left',
-    transition: 'background-color 0.15s',
+    transition: 'all 0.2s ease-in-out',
   },
   menuIcon: {
     width: '16px',
@@ -538,26 +538,27 @@ if (typeof document !== 'undefined') {
     style.id = styleId;
     style.textContent = `
       button[aria-label="Share this plan"]:hover:not(:disabled) {
-        background-color: ${colors.hover} !important;
+        background-color: var(--sdk-hover-color, ${colors.hover}) !important;
       }
       button[aria-label="Share this plan"]:focus {
-        box-shadow: 0 0 0 3px rgba(15, 82, 186, 0.2) !important;
+        box-shadow: 0 0 0 3px rgba(29, 66, 137, 0.2) !important;
       }
       button[aria-label="Copy link"]:hover,
       button[aria-label="Email this result"]:hover {
-        background-color: ${colors.bgHover} !important;
+        background-color: var(--sdk-bg-hover, ${colors.bgHover}) !important;
+        color: var(--sdk-hover-color, ${colors.hover}) !important;
       }
       button[aria-label="Copy link"]:focus,
       button[aria-label="Email this result"]:focus {
-        outline: 2px solid ${colors.primary} !important;
+        outline: 2px solid var(--sdk-primary-color, ${colors.primary}) !important;
         outline-offset: -2px !important;
       }
       input[type="email"]:focus {
-        border-color: ${colors.primary} !important;
-        box-shadow: 0 0 0 3px rgba(15, 82, 186, 0.1) !important;
+        border-color: var(--sdk-primary-color, ${colors.primary}) !important;
+        box-shadow: 0 0 0 3px rgba(29, 66, 137, 0.1) !important;
       }
       button[type="submit"]:not(:disabled):hover {
-        background-color: ${colors.hover} !important;
+        background-color: var(--sdk-hover-color, ${colors.hover}) !important;
       }
     `;
     if (document.head) {

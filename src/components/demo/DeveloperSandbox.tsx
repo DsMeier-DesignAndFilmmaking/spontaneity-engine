@@ -339,7 +339,7 @@ const styles: { [key: string]: React.CSSProperties } = {
   scenarioButtonActive: {
     borderColor: colors.primary,
     backgroundColor: colors.bgAccent,
-    boxShadow: `0 0 0 3px rgba(15, 82, 186, 0.1)`,
+    boxShadow: `0 0 0 3px rgba(29, 66, 137, 0.1)`,
   },
   scenarioHeader: {
     display: 'flex',
@@ -471,7 +471,7 @@ if (typeof document !== 'undefined') {
       
       button[aria-pressed="true"]:not(:disabled):hover {
         border-color: ${colors.primary} !important;
-        box-shadow: 0 0 0 3px rgba(15, 82, 186, 0.15) !important;
+        box-shadow: 0 0 0 3px rgba(29, 66, 137, 0.15) !important;
       }
       
       /* Logout button hover */

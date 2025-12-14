@@ -20,13 +20,17 @@ import { isFeatureEnabled, FEATURE_FLAGS } from '@/lib/utils/featureFlags';
 import { trackEvent } from '@/lib/analytics/trackEvent';
 import colors from '@/lib/design/colors';
 import SettingsModal from './SettingsModal';
-import RecentResults from './RecentResults';
+import RecentResultsAccordion from './RecentResultsAccordion';
 import SaveShareWidget from './SaveShareWidget';
 import FeedbackWidget from './FeedbackWidget';
 import UnifiedVibeSelector from './UnifiedVibeSelector';
 import RecommendationDisplay from './RecommendationDisplay';
+import RecommendationCard from './RecommendationCard';
 import LocationAutocomplete from './LocationAutocomplete';
 import UGCSubmissionModal from './UGCSubmissionModal';
+import SpontaneityTrigger from './SpontaneityTrigger';
+import SpontaneityInputModal from './SpontaneityInputModal';
+import RefineAdventureModal from './RefineAdventureModal';
 import type { ContextValues } from './ContextToggles';
 
 /**
@@ -52,6 +56,7 @@ function generateResultId(): string {
  * - Basic recommendation display
  */
 export default function FreeDemoWidget() {
+  const [smartInput, setSmartInput] = useState('');
   const [vibe, setVibe] = useState('');
   const [time, setTime] = useState('');
   const [location, setLocation] = useState('');
@@ -72,8 +77,14 @@ export default function FreeDemoWidget() {
   const [showSettings, setShowSettings] = useState(false);
   // UGC submission modal state
   const [showUGCModal, setShowUGCModal] = useState(false);
+  // Input modal state
+  const [showInputModal, setShowInputModal] = useState(false);
+  // Refine adventure modal state
+  const [showRefineModal, setShowRefineModal] = useState(false);
   // Developer mode toggle (UI only)
   const [developerMode, setDeveloperMode] = useState(false);
+  // Budget state (for refine modal)
+  const [budget, setBudget] = useState<'low' | 'medium' | 'high' | ''>('');
   // Selected LLMs state (default to OpenAI)
   const [selectedLLMs, setSelectedLLMs] = useState<string[]>(() => {
     // Try to load from localStorage, fallback to default
@@ -141,9 +152,12 @@ export default function FreeDemoWidget() {
       setError(null);
       setResult(null);
 
-      // Validate inputs
-      if (!vibe.trim() || !time.trim() || !location.trim()) {
-        setError('Please fill in all fields (Vibe, Time, Location)');
+      // Validate inputs - check smartInput first, then fallback to legacy fields
+      const hasSmartInput = smartInput.trim().length > 0;
+      const hasLegacyInputs = vibe.trim() && time.trim() && location.trim();
+      
+      if (!hasSmartInput && !hasLegacyInputs) {
+        setError('Please tell us what you feel like doing');
         setLoading(false);
         return;
       }
@@ -212,6 +226,9 @@ export default function FreeDemoWidget() {
         resultData = JSON.stringify(parsedResult, null, 2);
         setResult(resultData);
         
+        // Close the input modal after successful generation
+        setShowInputModal(false);
+        
       } catch (apiError) {
         console.error('[FreeDemoWidget] Error generating recommendation:', apiError);
         
@@ -261,6 +278,9 @@ export default function FreeDemoWidget() {
         
         setResult(resultData);
         // Don't set error - allow mock to display seamlessly
+        
+        // Close the input modal after successful generation (even for mock)
+        setShowInputModal(false);
       }
 
       // Track analytics
@@ -295,6 +315,23 @@ export default function FreeDemoWidget() {
     }
   };
 
+  // Scroll to result when it's generated
+  useEffect(() => {
+    if (result && resultId) {
+      // Small delay to ensure DOM is updated
+      setTimeout(() => {
+        const resultElement = document.getElementById('demo-results');
+        if (resultElement) {
+          resultElement.scrollIntoView({ 
+            behavior: 'smooth', 
+            block: 'start',
+            inline: 'nearest'
+          });
+        }
+      }, 100);
+    }
+  }, [result, resultId]);
+
   /**
    * Handles regenerating a recommendation with the same inputs
    */
@@ -309,6 +346,57 @@ export default function FreeDemoWidget() {
     setShowSettings(true);
     trackEvent('cta_click', {
       cta_name: 'adjust_vibes',
+      timestamp: Date.now(),
+    });
+  };
+
+  /**
+   * Handles opening refine adventure modal
+   */
+  const handleOpenRefineModal = () => {
+    setShowRefineModal(true);
+    trackEvent('cta_click', {
+      cta_name: 'open_refine_modal',
+      timestamp: Date.now(),
+    });
+  };
+
+  /**
+   * Handles quick adjustments from refine modal - updates state and regenerates
+   */
+  const handleQuickAdjust = (adjustments: {
+    vibe?: string;
+    time?: string;
+    location?: string;
+    budget?: 'low' | 'medium' | 'high' | '';
+  }) => {
+    if (adjustments.vibe !== undefined) setVibe(adjustments.vibe);
+    if (adjustments.time !== undefined) setTime(adjustments.time);
+    if (adjustments.location !== undefined) setLocation(adjustments.location);
+    if (adjustments.budget !== undefined) setBudget(adjustments.budget);
+    
+    // Close refine modal
+    setShowRefineModal(false);
+    
+    // Trigger regeneration with new parameters
+    setTimeout(() => {
+      handleGenerate();
+    }, 100);
+    
+    trackEvent('refine_adjustment', {
+      adjustments: Object.keys(adjustments).join(','),
+      timestamp: Date.now(),
+    });
+  };
+
+  /**
+   * Handles restart scenarios - closes refine modal and opens settings modal
+   */
+  const handleRestartScenarios = () => {
+    setShowRefineModal(false);
+    setShowSettings(true);
+    trackEvent('cta_click', {
+      cta_name: 'restart_scenarios',
       timestamp: Date.now(),
     });
   };
@@ -329,6 +417,16 @@ export default function FreeDemoWidget() {
     });
   };
 
+  /**
+   * Handles parsed values from SmartInput
+   */
+  const handleParsedChange = (parsed: { vibe: string; duration: string; location: string }) => {
+    // Programmatically update hidden legacy components' state
+    if (parsed.vibe) setVibe(parsed.vibe);
+    if (parsed.duration) setTime(parsed.duration);
+    if (parsed.location) setLocation(parsed.location);
+  };
+
   return (
     <div style={styles.container}>
       <div style={styles.card} id="free-demo-widget" data-demo-card>
@@ -336,16 +434,6 @@ export default function FreeDemoWidget() {
         <div style={styles.headerRow}>
           <div style={styles.headerContent}>
             <h1 style={styles.title}>Instant, personalized micro-adventures — no login needed.</h1>
-            {/* Active LLM Badges */}
-            {enhancementsEnabled && selectedLLMs.length > 0 && (
-              <div style={styles.llmBadges}>
-                {selectedLLMs.map((llm) => (
-                  <span key={llm} style={styles.llmBadge} title={`Using ${llm} for recommendations`}>
-                    {llm}
-                  </span>
-                ))}
-              </div>
-            )}
           </div>
           {/* Header Action Buttons */}
           {enhancementsEnabled && (
@@ -360,7 +448,7 @@ export default function FreeDemoWidget() {
                 }}
                 aria-label="Suggest something nearby"
                 disabled={loading}
-                title="Suggest something nearby"
+                title="Share Your Spontaneous Idea"
               >
                 <svg
                   width="20"
@@ -429,69 +517,65 @@ export default function FreeDemoWidget() {
           )}
         </div>
 
-        {/* Recent Results (feature-flagged) */}
+        {/* Minimal Trigger Button */}
+        {!result && (
+          <SpontaneityTrigger
+            onClick={() => setShowInputModal(true)}
+            disabled={loading}
+          />
+        )}
+
+        {/* Recent Results Accordion (below Generate button) */}
         {enhancementsEnabled && (
-          <RecentResults
+          <RecentResultsAccordion
             onResultSelect={handleResultSelect}
             currentResultId={resultId || undefined}
           />
         )}
 
-        {/* Unified Vibe Selector */}
-        <UnifiedVibeSelector
-          value={vibe}
-          onChange={setVibe}
-          onTimeChange={setTime}
-          onLocationChange={setLocation}
-          disabled={loading}
-        />
-
-        {/* AI Testing Controls */}
-        <div style={styles.controls} id="free-demo-input">
-          <div style={styles.inputGroup}>
-            <label style={styles.label} htmlFor="time">
-              Duration
-            </label>
-            <select
-              id="time"
-              value={time}
-              onChange={(e) => setTime(e.target.value)}
-              style={styles.select}
-              disabled={loading}
-            >
-              <option value="">Select time</option>
-              <option value="30 min">30 min</option>
-              <option value="1 hour">1 hour</option>
-              <option value="2 hours">2 hours</option>
-              <option value="3 hours">3 hours</option>
-              <option value="Half day">Half day</option>
-              <option value="Full day">Full day</option>
-            </select>
-          </div>
-
-          <div style={styles.inputGroup}>
-            <label style={styles.label} htmlFor="location">
-              Location
-            </label>
-            <LocationAutocomplete
-              id="location"
-              value={location}
-              onChange={setLocation}
-              placeholder="e.g., San Francisco, home, outdoors"
-              disabled={loading}
-            />
-          </div>
-
-          <button
-            onClick={handleGenerate}
+        {/* Hidden Legacy Components - State management only */}
+        <div style={styles.hiddenComponents} aria-hidden="true">
+          <UnifiedVibeSelector
+            value={vibe}
+            onChange={setVibe}
+            onTimeChange={setTime}
+            onLocationChange={setLocation}
             disabled={loading}
-            style={{
-              ...styles.primaryButton,
-              ...(loading ? styles.buttonDisabled : {}),
-            }}
-          >
-            {loading ? 'Generating...' : 'Generate & Test'}
-          </button>
+          />
+          <div style={styles.controls} id="free-demo-input">
+            <div style={styles.inputGroup}>
+              <label style={styles.label} htmlFor="time">
+                Duration
+              </label>
+              <select
+                id="time"
+                value={time}
+                onChange={(e) => setTime(e.target.value)}
+                style={styles.select}
+                disabled={loading}
+              >
+                <option value="">Select time</option>
+                <option value="30 min">30 min</option>
+                <option value="1 hour">1 hour</option>
+                <option value="2 hours">2 hours</option>
+                <option value="3 hours">3 hours</option>
+                <option value="Half day">Half day</option>
+                <option value="Full day">Full day</option>
+              </select>
+            </div>
+            <div style={styles.inputGroup}>
+              <label style={styles.label} htmlFor="location">
+                Location
+              </label>
+              <LocationAutocomplete
+                id="location"
+                value={location}
+                onChange={setLocation}
+                placeholder="e.g., San Francisco, home, outdoors"
+                disabled={loading}
+              />
+            </div>
+          </div>
         </div>
 
         {/* Error Display with Try Again Button */}
@@ -512,7 +596,12 @@ export default function FreeDemoWidget() {
         )}
 
         {result && resultId && (
-          <div style={styles.resultBox} id="demo-results" data-result-panel>
+          <div 
+            style={styles.resultBox} 
+            id="demo-results" 
+            data-result-panel
+            className="recommendation-result-container"
+          >
             {/* User-Friendly Recommendation Display */}
             <RecommendationDisplay
               resultJson={result}
@@ -524,7 +613,9 @@ export default function FreeDemoWidget() {
               }}
               onRegenerate={handleRegenerate}
               onAdjustVibes={handleAdjustVibes}
+              onRefineAdventure={handleOpenRefineModal}
               loading={loading}
+              isNewlyGenerated={true}
             />
             
             {/* Developer Mode Toggle (UI only) */}
@@ -578,7 +669,43 @@ export default function FreeDemoWidget() {
             currentContextValues={contextValues}
             selectedLLMs={selectedLLMs}
             onLLMChange={handleLLMChange}
+            currentVibe={vibe}
+            currentTime={time}
+            currentLocation={location}
+            onFilterChange={(filters) => {
+              setVibe(filters.vibe);
+              setTime(filters.time);
+              setLocation(filters.location);
+            }}
+            onApplyAndGenerate={handleGenerate}
             disabled={loading}
+          />
+        )}
+
+        {/* Input Modal */}
+        <SpontaneityInputModal
+          isOpen={showInputModal}
+          onClose={() => setShowInputModal(false)}
+          value={smartInput}
+          onChange={setSmartInput}
+          onParsedChange={handleParsedChange}
+          onGenerate={handleGenerate}
+          loading={loading}
+          disabled={loading}
+        />
+
+        {/* Refine Adventure Modal */}
+        {result && resultId && (
+          <RefineAdventureModal
+            isOpen={showRefineModal}
+            onClose={() => setShowRefineModal(false)}
+            currentVibe={vibe}
+            currentTime={time}
+            currentLocation={location}
+            currentBudget={budget}
+            onQuickAdjust={handleQuickAdjust}
+            onRestartScenarios={handleRestartScenarios}
+            loading={loading}
           />
         )}
 
@@ -680,9 +807,9 @@ const styles: { [key: string]: React.CSSProperties } = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    transition: 'background-color 0.2s ease, color 0.2s ease',
+    transition: 'all 0.2s ease-in-out',
     outline: 'none',
-    color: colors.primary, // More prominent - use primary color
+    color: 'var(--sdk-primary-color, ' + colors.primary + ')', // More prominent - use primary color
     flexShrink: 0,
   },
   suggestIcon: {
@@ -701,7 +828,7 @@ const styles: { [key: string]: React.CSSProperties } = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    transition: 'background-color 0.2s ease, color 0.2s ease',
+    transition: 'all 0.2s ease-in-out',
     outline: 'none',
     color: colors.textMuted,
     flexShrink: 0,
@@ -759,6 +886,25 @@ const styles: { [key: string]: React.CSSProperties } = {
     backgroundSize: '20px 20px',
     paddingRight: '3rem',
   },
+  smartInputContainer: {
+    width: '100%',
+    marginBottom: '1.5rem',
+  },
+  generateButton: {
+    width: '100%',
+    padding: '1.125rem 2rem',
+    fontSize: '1.125rem',
+    fontWeight: '700',
+    backgroundColor: 'var(--sdk-primary-color, ' + colors.primary + ')',
+    color: 'var(--sdk-text-inverse, ' + colors.textInverse + ')',
+    border: 'none',
+    borderRadius: '12px',
+    cursor: 'pointer',
+    transition: 'all 0.2s ease-in-out',
+    outline: 'none',
+    boxShadow: `0 4px 12px rgba(29, 66, 137, 0.2)`,
+    marginBottom: '1rem',
+  },
   primaryButton: {
     padding: '0.875rem 2rem',
     fontSize: '1rem',
@@ -770,6 +916,15 @@ const styles: { [key: string]: React.CSSProperties } = {
     cursor: 'pointer',
     transition: 'background-color 0.2s',
     outline: 'none',
+  },
+  hiddenComponents: {
+    position: 'absolute',
+    left: '-9999px',
+    width: '1px',
+    height: '1px',
+    overflow: 'hidden',
+    opacity: 0,
+    pointerEvents: 'none',
   },
   buttonDisabled: {
     opacity: 0.6,
@@ -881,12 +1036,12 @@ if (typeof document !== 'undefined') {
       }
       #time:focus {
         border-color: ${colors.primary} !important;
-        box-shadow: 0 0 0 3px rgba(15, 82, 186, 0.1) !important;
+        box-shadow: 0 0 0 3px rgba(29, 66, 137, 0.1) !important;
       }
       /* Ensure select dropdown arrow color matches on hover/focus */
       #time:hover:not(:disabled),
       #time:focus {
-        background-image: url("data:image/svg+xml,%3Csvg width='20' height='20' viewBox='0 0 24 24' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M6 9L12 15L18 9' stroke='%230F52BA' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") !important;
+        background-image: url("data:image/svg+xml,%3Csvg width='20' height='20' viewBox='0 0 24 24' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M6 9L12 15L18 9' stroke='%231D4289' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") !important;
       }
     `;
     if (document.head) {
@@ -901,24 +1056,36 @@ if (typeof document !== 'undefined') {
     headerButtonStyle.id = headerButtonStyleId;
     headerButtonStyle.textContent = `
       button[aria-label="Suggest something nearby"]:hover:not(:disabled) {
-        background-color: ${colors.bgAccent} !important;
-        color: ${colors.primary} !important;
+        background-color: var(--sdk-bg-accent, ${colors.bgAccent}) !important;
+        color: var(--sdk-hover-color, ${colors.hover}) !important;
       }
       button[aria-label="Suggest something nearby"]:active:not(:disabled) {
-        background-color: ${colors.bgHover} !important;
+        background-color: var(--sdk-bg-hover, ${colors.bgHover}) !important;
       }
       button[aria-label="Suggest something nearby"]:focus {
-        box-shadow: 0 0 0 3px rgba(15, 82, 186, 0.2) !important;
+        box-shadow: 0 0 0 3px rgba(29, 66, 137, 0.2) !important;
       }
       button[aria-label="Settings"]:hover:not(:disabled) {
-        background-color: ${colors.bgHover} !important;
-        color: ${colors.primary} !important;
+        background-color: var(--sdk-bg-hover, ${colors.bgHover}) !important;
+        color: var(--sdk-hover-color, ${colors.hover}) !important;
       }
       button[aria-label="Settings"]:active:not(:disabled) {
-        background-color: ${colors.bgHover} !important;
+        background-color: var(--sdk-bg-hover, ${colors.bgHover}) !important;
       }
       button[aria-label="Settings"]:focus {
-        box-shadow: 0 0 0 3px rgba(15, 82, 186, 0.2) !important;
+        box-shadow: 0 0 0 3px rgba(29, 66, 137, 0.2) !important;
+      }
+      /* Generate Spontaneity Button hover */
+      button[aria-label="Generate Spontaneity"]:not(:disabled):hover {
+        background-color: var(--sdk-hover-color, ${colors.hover}) !important;
+        transform: translateY(-1px);
+        box-shadow: 0 6px 16px rgba(29, 66, 137, 0.3) !important;
+      }
+      /* Tweak Options button hover */
+      button[aria-label="Tweak options and preferences"]:hover {
+        color: var(--sdk-hover-color, ${colors.hover}) !important;
+        text-decoration-color: var(--sdk-hover-color, ${colors.hover}) !important;
+        background-color: var(--sdk-bg-accent, ${colors.bgAccent}) !important;
       }
     `;
     if (document.head) {

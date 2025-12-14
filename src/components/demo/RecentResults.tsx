@@ -8,6 +8,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { trackEvent } from '@/lib/analytics/trackEvent';
+import colors from '@/lib/design/colors';
 
 export interface ResultThumbnail {
   id: string;
@@ -72,6 +73,45 @@ export default function RecentResults({ onResultSelect, currentResultId }: Recen
     }
   }, []);
 
+  // Add hover effect styles - uses global hover color
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    
+    const styleId = 'recent-results-hover-styles';
+    // Remove existing style if it exists to ensure fresh styles
+    const existingStyle = document.getElementById(styleId);
+    if (existingStyle) {
+      existingStyle.remove();
+    }
+    
+    const style = document.createElement('style');
+    style.id = styleId;
+    style.textContent = `
+      .recent-result-thumbnail:hover,
+      [data-recent-results] button[type="button"]:hover {
+        border-color: var(--sdk-hover-color, #16336B) !important;
+        transform: translateY(-2px) !important;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1) !important;
+      }
+      .recent-result-thumbnail:focus,
+      [data-recent-results] button[type="button"]:focus {
+        outline: 2px solid var(--sdk-primary-color, #1D4289) !important;
+        outline-offset: 2px !important;
+      }
+    `;
+    if (document.head) {
+      document.head.appendChild(style);
+    }
+
+    // Cleanup function
+    return () => {
+      const styleToRemove = document.getElementById(styleId);
+      if (styleToRemove) {
+        styleToRemove.remove();
+      }
+    };
+  }, []);
+
   const handleResultClick = (result: ResultThumbnail) => {
     // Track analytics
     trackEvent('cta_click', {
@@ -89,7 +129,7 @@ export default function RecentResults({ onResultSelect, currentResultId }: Recen
   }
 
   return (
-    <div style={styles.container}>
+    <div style={styles.container} data-recent-results>
       <label style={styles.label}>Recent results</label>
       <div style={styles.thumbnailsContainer}>
         {results.map((result) => (
@@ -97,6 +137,7 @@ export default function RecentResults({ onResultSelect, currentResultId }: Recen
             key={result.id}
             type="button"
             onClick={() => handleResultClick(result)}
+            className="recent-result-thumbnail"
             style={{
               ...styles.thumbnail,
               ...(currentResultId === result.id ? styles.thumbnailActive : {}),
@@ -151,8 +192,8 @@ const styles: { [key: string]: React.CSSProperties } = {
   thumbnailActive: {
     borderWidth: '2px',
     borderStyle: 'solid',
-    borderColor: '#667eea',
-    backgroundColor: '#f0f4ff',
+    borderColor: 'var(--sdk-primary-color, ' + colors.primary + ')',
+    backgroundColor: 'var(--sdk-bg-accent, ' + colors.bgAccent + ')',
   },
   thumbnailPreview: {
     fontSize: '0.75rem',
@@ -167,19 +208,4 @@ const styles: { [key: string]: React.CSSProperties } = {
     color: '#999',
   },
 };
-
-// Add hover effect
-if (typeof document !== 'undefined') {
-  const style = document.createElement('style');
-  style.textContent = `
-    button[type="button"]:hover {
-      border-color: #667eea !important;
-      transform: translateY(-2px);
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1) !important;
-    }
-  `;
-  if (document.head) {
-    document.head.appendChild(style);
-  }
-}
 

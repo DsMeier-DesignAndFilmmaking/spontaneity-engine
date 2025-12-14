@@ -739,7 +739,7 @@ const styles: { [key: string]: React.CSSProperties } = {
     borderWidth: '2px',
     borderStyle: 'solid',
     borderColor: colors.primary,
-    boxShadow: `0 0 0 3px rgba(15, 82, 186, 0.1)`,
+    boxShadow: `0 0 0 3px rgba(29, 66, 137, 0.1)`,
   },
   dropdownValue: {
     flex: 1,
@@ -908,7 +908,7 @@ if (typeof document !== 'undefined') {
       }
       button[aria-label="Select vibes"]:not(:disabled):focus {
         border-color: ${colors.primary} !important;
-        box-shadow: 0 0 0 3px rgba(15, 82, 186, 0.1) !important;
+        box-shadow: 0 0 0 3px rgba(29, 66, 137, 0.1) !important;
       }
       /* Dropdown option hover - ensure readable text on light gray background */
       button[role="option"]:not(:disabled):hover {
